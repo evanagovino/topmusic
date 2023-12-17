@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: fastapi
+      dockerfile: Dockerfile
+    networks: 
+      AIservice: 
+        aliases: 
+          - backend.docker
+    volumes:
+      - .:/app
+    ports:
+      - 8008:8000
+
+  frontend:
+    build:
+      context: streamlit
+      dockerfile: Dockerfile
+    networks: 
+      AIservice: 
+        aliases: 
+          - frontend.docker
+    ports:
+      - 8501:8501
+    depends_on:
+      - web
+    # volumes:
+    #     - ./Streamlit_Frontend:/app
+    #     - ./storage:/storage
+
+networks:
+  AIservice:
+    external: true
+
