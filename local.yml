@@ -26,9 +26,6 @@ services:
       - 8501:8501
     depends_on:
       - web
-    # volumes:
-    #     - ./Streamlit_Frontend:/app
-    #     - ./storage:/storage
 
 networks:
   AIservice:

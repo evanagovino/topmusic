@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: fastapi
+      dockerfile: Dockerfile
+    networks: 
+      AIservice: 
+        aliases: 
+          - backend.docker
+    volumes:
+      - .:/app
+    expose:
+      - 8008
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi.rule=Host(`fastapi-traefik.topmusic.page`)"
+      - "traefik.http.routers.fastapi.tls=true"
+      - "traefik.http.routers.fastapi.tls.certresolver=letsencrypt"
+
+  frontend:
+    build:
+      context: streamlit
+      dockerfile: Dockerfile
+    networks: 
+      AIservice: 
+        aliases: 
+          - frontend.docker
+    ports:
+      - 8501:8501
+    depends_on:
+      - web
+  
+  traefik:
+    build:
+      context: .
+      dockerfile: Dockerfile.traefik
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik-public-certificates:/certificates"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard-fastapi-traefik..topmusic.page`) && (PathPrefix(`/`)"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${USERNAME}:${PASSWORD}"
+
+volumes:
+  traefik-public-certificates:
+
+networks:
+  AIservice:
+    external: true
+
