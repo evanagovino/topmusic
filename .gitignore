@@ -1,2 +1,4 @@
 *.env
 *.pyc
+traefik.dev.toml
+streamlit/.streamlit/secrets.toml
