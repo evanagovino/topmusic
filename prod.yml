@@ -9,6 +9,8 @@ services:
       AIservice: 
         aliases: 
           - backend.docker
+    env_file:
+      - .env
     volumes:
       - .:/app
     expose:
