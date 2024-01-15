@@ -14,17 +14,13 @@ def pull_genre_payload():
 
 def pull_unique_genres(genres):
     genres = [i for i in genres]
-    genres.append('All')
-    genres.sort(key=lambda x: "0" if x == 'All' else x)
-    return genres
+    return sort_list(genres)
 
 def pull_unique_subgenres(genres):
     subgenres = []
     for i in genres.values():
         subgenres += i
-    subgenres.append('All')
-    subgenres.sort(key=lambda x: "0" if x == 'All' else x)
-    return subgenres
+    return sort_list(subgenres)
 
 # @st.cache_data(ttl=600)
 def initiate_genres():
@@ -42,9 +38,7 @@ def pull_artist_payload():
 
 def pull_unique_artists(artists):
     artists = [i for i in artists]
-    artists.append('All')
-    artists.sort(key=lambda x: "0" if x == 'All' else x)
-    return artists
+    return sort_list(artists)
 
 def initiate_artists():
     if 'all_artists' not in st.session_state:
@@ -58,9 +52,7 @@ def pull_publication_payload():
 
 def pull_unique_publications(publications):
     publications = [i for i in publications]
-    publications.append('All')
-    publications.sort(key=lambda x: "0" if x == 'All' else x)
-    return publications
+    return sort_list(publications)
 
 def initiate_publications():
     if 'all_publications' not in st.session_state:
@@ -90,9 +82,7 @@ def pull_unique_albums(albums):
         albums = [i for i in albums]
     else:
         albums = []
-    albums.append('All')
-    albums.sort(key=lambda x: "0" if x == 'All' else x)
-    return albums
+    return sort_list(albums)
 
 @st.cache_data(ttl=600)
 def retrieve_tracks_payload(artist_id=None, album_id=None, album_ids=None):
@@ -117,9 +107,7 @@ def pull_unique_tracks(tracks):
         tracks = [i['track_name'] for i in tracks]
     else:
         tracks = []
-    tracks.append('All')
-    tracks.sort(key=lambda x: "0" if x == 'All' else x)
-    return tracks
+    return sort_list(tracks)
 
 
 @st.cache_data(ttl=600)
@@ -148,7 +136,13 @@ def get_track_info(track_id,
     return df
 
 @st.cache_data(ttl=600)
-def get_relevant_albums(min_year, max_year, genre=None, subgenre=None, publication=None, list=None):
+def get_relevant_albums(min_year, 
+                        max_year, 
+                        genre=None, 
+                        subgenre=None, 
+                        publication=None, 
+                        list=None
+                        ):
     base_api = f'{fastapi_url}/get_relevant_albums/?min_year={min_year}&max_year={max_year}'
     if genre:
         for item in genre:
@@ -213,21 +207,35 @@ def return_tracks(albums,
     #st.write(df)
     return df
 
+@st.cache_data
 def get_album_accolades(album_id, n_accolades=10):
-    accolades = requests.get(f'{fastapi_url}/get_album_accolades/{album_id}')
+    if 'album_accolades' in st.session_state:
+        if st.session_state['album_accolades']:
+            if album_id in st.session_state.album_accolades:
+                accolades = st.session_state.album_accolades[album_id]
+                for accolade in accolades:
+                    publication = accolade['publication']
+                    list = accolade['list']
+                    rank = accolade['rank']
+                    st.write(f'{publication} ({list}): {rank}')
+            else:
+                st.write('No Accolades Found For Album')
+
+@st.cache_data
+def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
+    base_id = f'{fastapi_url}/get_album_accolades_multiple_albums/?'
+    for album in album_ids:
+        base_id += f'&album_ids={album}'
+    accolades = requests.get(base_id)
     if accolades.status_code == 200:
-        accolades = accolades.json()['albums']
-        for accolade in accolades:
-            publication = accolade['publication']
-            list = accolade['list']
-            rank = accolade['rank']
-            st.write(f'{publication} ({list}): {rank}')
-    else:
-        st.write('No Accolades Found For Album')
+        return accolades.json()['albums']
 
 def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
     # album_keys = list(df['album_uri'].unique())
     #accolades = pull_relevant_albums_accolades(album_keys)
+    unique_albums = list(df['album_id'].unique())
+    st.session_state.album_accolades = get_album_accolades_multiple_albums(unique_albums)
+    print(st.session_state.album_accolades)
     for position in range(list_start, min(list_end, len(df))):
         album_key = df['album_id'][position]
         artist = df['artist'][position]
@@ -241,6 +249,7 @@ def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
         with col1:
             st.image(image, use_column_width=True)
         with col2:
+            # st.markdown(f'#{position + 1}')
             st.subheader(f'#{position + 1}')
             st.subheader(artist)
             st.subheader(album)
@@ -263,6 +272,7 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
     # album_keys = list(df['album_uri'].unique())
     #accolades = pull_relevant_albums_accolades(album_keys)
     df['count'] = range(len(df))
+    st.session_state.album_accolades = get_album_accolades_multiple_albums(list(df['album_id'].unique()))
     #print(df.head())
     df = df.groupby(['album_id', 'artist', 'album_name', 'genre', 'subgenre', 'year', 'image_url', 'album_url'])['count'].min().reset_index().sort_values('count')
     df.index = range(len(df))

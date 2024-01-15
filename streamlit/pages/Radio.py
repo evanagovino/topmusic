@@ -4,7 +4,9 @@ from callbacks import *
 from query_commands import *
 from spotipy_helper import *
 
-st.set_page_config('Radio', layout="wide")
+st.set_page_config('Top Albums', layout="wide")
+
+page_header()
 
 feature_list = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
 
@@ -17,6 +19,10 @@ if 'available_albums' not in st.session_state:
     st.session_state.available_albums = ['All']
 if 'available_songs' not in st.session_state:
     st.session_state.available_songs = ['All']
+if 'available_tracks' not in st.session_state:
+    st.session_state.available_tracks = ['All']
+if 'generate' not in st.session_state:
+    st.session_state.generate = False
 
 with st.sidebar:
     col1, col2 = st.columns(2)
@@ -91,9 +97,6 @@ with st.sidebar:
         else:
             if 'track_id' not in st.session_state:
                 song_callback()
-st.header('TopMusic')
-st.subheader('A new way to discover music.')
-st.subheader('Pick a Genre or Artist to Start Your Radio')
 if 'genre_selection' in st.session_state:
     st.write('Genre:', st.session_state.genre_selection)
 if 'subgenre_selection' in st.session_state:
@@ -124,6 +127,7 @@ elif 'genre_selection' in st.session_state:
     display = st.session_state.genre_selection
 else:
     display = None
+st.write('Display', display)
 playback_settings = st.expander('Playback Settings', expanded=False)
 with playback_settings:
     model_features = st.multiselect(
@@ -137,53 +141,65 @@ with playback_settings:
     unskew_features = st.checkbox('Unskew Features', value=True, key='unskew_features')
     duration_min_minute = st.checkbox('Only return songs longer than 1 Minute', value=True, key='duration_min_minute')
 with st.sidebar:
-    play_songs = st.button('Play songs via Spotify', 
-                           help="Play songs based on above parameters",
-                           )
-    create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        previous_song = st.button('\u23EA')
-    with col2:
-        resume_song = st.button('\u25B6\u23F8')
-    with col3:
-        next_song = st.button('\u23E9')
-    if create_playlist:
-        if 'track_uris' in st.session_state:
-            tracks = st.session_state.track_uris
-        else:
+    if display:
+        generate = st.button(f'Generate {display} Radio', 
+                             help="Generate a radio based on above parameters"
+                             )
+        if generate:
+            st.session_state.generate = True
             radio_callback()
             st.session_state.track_uris = ['spotify:track:' + i for i in list(st.session_state.track_info.index)]
-            tracks = st.session_state.track_uris
-        spotify_create_playlist(tracks=tracks,
-                                year="Test", 
-                                genre="Test", 
-                                publication="Test", 
-                                )
-    if play_songs:
-        radio_callback()
-        st.session_state.track_uris = ['spotify:track:' + i for i in list(st.session_state.track_info.index)]
-        spotipy_start_playback(uris=st.session_state.track_uris)
-        st.session_state.playlist_id = None
-    if resume_song:
-        x = spotipy_current_playback()
-        is_playing = False
-        if x:
-            is_playing = x['is_playing']
-        if is_playing:
-            spotipy_pause_playback()
-        else:
-            spotipy_start_playback()
-    if previous_song:
-        spotipy_previous_track()
-    if next_song:
-        spotipy_next_track()
-    # if 'spotipy_error' in st.session_state:
-    #     st.write(st.session_state.spotipy_error)
-    # if st.session_state.playlist_id:
-    #     playlist_link = f'https://open.spotify.com/playlist/{st.session_state.playlist_id}'
-    #     link = f'[Click here to see your created playlist]({playlist_link})'
-    #     st.markdown(link, unsafe_allow_html=True)
+            if 'playlist_id' in st.session_state:
+                del st.session_state['playlist_id']
+        if st.session_state.generate:
+            if 'spotify' in st.session_state:
+                    play_songs = st.button('Play songs via Spotify', 
+                                        help="Play songs based on above parameters",
+                                        )
+                    create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
+                    if play_songs:
+                        spotipy_start_playback(uris=st.session_state.track_uris)
+                        st.session_state.playlist_id = None
+                    elif create_playlist:
+                        if radio_type == 'Genre':
+                            spotify_create_playlist(tracks=st.session_state.track_uris,
+                                                    year=text_year, 
+                                                    genre=display, 
+                                                    publication=None, 
+                                                    )
+                        elif radio_type == 'Artist':
+                            spotify_create_playlist(tracks=st.session_state.track_uris,
+                                                    year='', 
+                                                    genre=display, 
+                                                    publication='', 
+                                                    )
+    if 'spotify' in st.session_state:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            previous_song = st.button('\u23EA')
+        with col2:
+            resume_song = st.button('\u25B6\u23F8')
+        with col3:
+            next_song = st.button('\u23E9')
+        if resume_song:
+            x = spotipy_current_playback()
+            is_playing = False
+            if x:
+                is_playing = x['is_playing']
+            if is_playing:
+                spotipy_pause_playback()
+            else:
+                spotipy_start_playback()
+        if previous_song:
+            spotipy_previous_track()
+        if next_song:
+            spotipy_next_track()
+        # if 'spotipy_error' in st.session_state:
+        #     st.write(st.session_state.spotipy_error)
+        # if st.session_state.playlist_id:
+        #     playlist_link = f'https://open.spotify.com/playlist/{st.session_state.playlist_id}'
+        #     link = f'[Click here to see your created playlist]({playlist_link})'
+        #     st.markdown(link, unsafe_allow_html=True)
 
 spotify_player()
 
@@ -194,6 +210,9 @@ with display_songs:
     else:
         st.write('No songs to display! Perhaps you need to start a radio?')
 
-st.subheader('Recommended Albums')
+if display == None:
+    st.subheader('Pick a Genre or Artist to Start Your Radio')
+
 if 'track_info' in st.session_state:
+    st.subheader('Recommended Albums')
     show_albums_two(st.session_state.track_info)

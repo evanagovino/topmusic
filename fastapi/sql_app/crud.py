@@ -42,6 +42,9 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
 def get_album_accolades(db: Session, album_id: str):
     return db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_uri == album_id).all()
 
+def get_album_accolades_multiple_albums(db: Session, album_ids: list):
+    return db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_uri.in_(album_ids)).all()
+
 def get_similar_artists(db: Session):
     return db.query(models.ArtistPublications).all()
 

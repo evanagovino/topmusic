@@ -231,7 +231,9 @@ def get_relevant_albums(min_year: int,
     return x
 
 @app.get("/get_similar_artists/{artist_id}", response_model=schemas.Artists)
-def get_similar_artists(artist_id: str, db: Session = Depends(get_db)):
+def get_similar_artists(artist_id: str, 
+                        db: Session = Depends(get_db)
+                        ):
     db_albums = crud.get_similar_artists(db)
     x = {'artists': {}}
     for position, value in enumerate(db_albums):
@@ -246,7 +248,11 @@ def get_similar_artists(artist_id: str, db: Session = Depends(get_db)):
     return x
 
 @app.get("/get_similar_genres/{genre}", response_model=schemas.Genres)
-def get_similar_genres(genre: str, features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), unskew_features: bool = True, db: Session = Depends(get_db)):
+def get_similar_genres(genre: str, 
+                       features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                       unskew_features: bool = True, 
+                       db: Session = Depends(get_db)
+                       ):
     features = unskew_features_function(features, unskew_features)
     db_genres = crud.get_similar_genres(db)
     genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
@@ -332,7 +338,8 @@ def get_total_track_similarity(track_id: str,
 
 
 @app.get('/get_track_data/{track_id}', response_model=schemas.TrackDetails)
-def get_track_data(track_id: str, db: Session = Depends(get_db)):
+def get_track_data(track_id: str, 
+                   db: Session = Depends(get_db)):
     db_tracks = crud.get_track_data(db, track_id=track_id)
     if db_tracks is None:
         raise HTTPException(status_code=404, detail="No tracks that match criteria")
@@ -343,9 +350,11 @@ def get_track_data(track_id: str, db: Session = Depends(get_db)):
     return x
 
 @app.get('/get_album_accolades/{album_id}', response_model=schemas.AlbumsList)
-def get_album_accolades(album_id: str, n_accolades: int = 10, db: Session = Depends(get_db)):
+def get_album_accolades(album_id: str, 
+                        n_accolades: int = 10, 
+                        db: Session = Depends(get_db)):
     db_albums = crud.get_album_accolades(db, album_id=album_id)
-    print(len(db_albums))
+    # print(len(db_albums))
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     elif len(db_albums) == 0:
@@ -365,3 +374,38 @@ def get_album_accolades(album_id: str, n_accolades: int = 10, db: Session = Depe
             break
     x['albums'] = new_dict
     return x
+
+@app.get('/get_album_accolades_multiple_albums/', response_model=schemas.Albums)
+def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
+                                        n_accolades: int = 10,
+                                        album_limit: int = 50,
+                                        db: Session = Depends(get_db)):
+    db_albums = crud.get_album_accolades_multiple_albums(db, album_ids=album_ids[:album_limit])
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    elif len(db_albums) == 0:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    x = {'albums': {}}
+    for position, value in enumerate(db_albums):
+        album_uri = getattr(value, 'album_uri')
+        if album_uri in x['albums']:
+            pass
+        else:
+            x['albums'][album_uri] = []
+        new_value = {}
+        for feature in ['rank', 'points', 'publication', 'list']:
+            new_value[feature] = getattr(value, feature)
+        x['albums'][album_uri].append(new_value)
+    print(x['albums'])
+    for album in x['albums']:
+        new_dict = []
+        counting_value = 0
+        for value in sorted(x['albums'][album], key=lambda x: x['points'], reverse=True):
+            new_dict.append(value)
+            counting_value += 1
+            if counting_value >= n_accolades:
+                break
+        x['albums'][album] = new_dict
+    return x
+    
+

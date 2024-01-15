@@ -1,10 +1,11 @@
 import streamlit as st
+from spotipy_helper import *
 from _utils import *
 
-st.set_page_config('Albums of the Year', layout="wide")
+st.set_page_config('Top Albums', layout="wide")
 
-st.header('TopMusic')
-st.subheader('A new way to discover music.')
+page_header()
 
-for item in st.session_state:
-    print(item, st.session_state[item])
+spotipy_setup()
+
+# st.write(st.session_state)

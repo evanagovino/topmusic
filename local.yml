@@ -9,6 +9,8 @@ services:
       AIservice: 
         aliases: 
           - backend.docker
+    env_file:
+      - .env
     volumes:
       - .:/app
     ports:
@@ -24,6 +26,8 @@ services:
           - frontend.docker
     ports:
       - 8501:8501
+    env_file:
+      - .env
     depends_on:
       - web
 

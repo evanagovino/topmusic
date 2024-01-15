@@ -46,7 +46,8 @@ def album_callback():
             st.session_state.tracks_payload = retrieve_tracks_payload(album_id=st.session_state.album_id)
     elif 'artist_id' in st.session_state:
         st.session_state.tracks_payload = retrieve_tracks_payload(artist_id=st.session_state.artist_id)
-    st.session_state.available_tracks = pull_unique_tracks(st.session_state.tracks_payload)
+    if 'tracks_payload' in st.session_state:
+        st.session_state.available_tracks = pull_unique_tracks(st.session_state.tracks_payload)
 
 def song_callback():
     if 'song_selection' in st.session_state:
@@ -77,8 +78,6 @@ def radio_callback():
         elif 'subgenre_selection' in st.session_state:
             show_subgenres = [st.session_state.subgenre_selection]
             show_genres = None
-        # else:
-        #     st.session_state.general_error = 'No genre selected in player'
         if show_genres or show_subgenres:
             relevant_albums = get_relevant_albums(min_year = st.session_state.min_year,
                                                   max_year = st.session_state.max_year,

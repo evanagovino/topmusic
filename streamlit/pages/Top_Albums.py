@@ -8,6 +8,8 @@ from spotipy_helper import *
 
 st.set_page_config('Top Albums', layout="wide")
 
+page_header()
+
 # page_length = 50
 
 init_time = datetime.datetime.now()
@@ -24,6 +26,8 @@ initiate_publications()
 #     st.session_state.all_publications = pull_all_publications()
 
 spotipy_setup()
+
+#st.write(st.session_state)
 
 if 'track_info' in st.session_state:
     del st.session_state['track_info']
@@ -94,6 +98,8 @@ with st.sidebar:
                                         replace_albums=repeat_albums, 
                                         weight_albums=weight_albums, 
                                         weight_tracks=weight_tracks)
+            text_genre = get_genre_for_playlist(show_genres, show_subgenres)
+            text_publication = get_publication_for_playlist(show_publications)
             spotify_create_playlist(tracks=tracks,
                                     year=text_year, 
                                     genre=text_genre, 
@@ -123,7 +129,6 @@ with st.sidebar:
             spotipy_next_track()
         if 'spotipy_error' in st.session_state:
             st.write(st.session_state.spotipy_error)
-st.header('TopMusic')
-st.subheader('A new way to discover music.')
+#st.write(st.session_state)
 show_albums(relevant_albums, 0, 50, show_subgenres)
 spotify_player()
