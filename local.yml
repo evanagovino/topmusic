@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  web:
+  fastapi:
     build:
       context: fastapi
       dockerfile: Dockerfile
@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     depends_on:
-      - web
+      - fastapi
 
 networks:
   AIservice:
