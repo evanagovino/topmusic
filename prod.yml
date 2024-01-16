@@ -1,64 +1,51 @@
 version: '3.8'
 
 services:
-  web:
+  fastapi:
     build:
       context: fastapi
       dockerfile: Dockerfile
-    networks: 
-      AIservice: 
-        aliases: 
-          - backend.docker
+    # networks: 
+    #   AIservice: 
+    #     aliases: 
+    #       - backend.docker
     env_file:
       - .env
     volumes:
       - .:/app
-    expose:
-      - 8008
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.fastapi.rule=Host(`fastapi-traefik.topmusic.page`)"
-      - "traefik.http.routers.fastapi.tls=true"
-      - "traefik.http.routers.fastapi.tls.certresolver=letsencrypt"
+    # expose:
+    #   - 8008
 
-  frontend:
+  streamlit:
     build:
       context: streamlit
       dockerfile: Dockerfile
-    networks: 
-      AIservice: 
-        aliases: 
-          - frontend.docker
+    # networks: 
+    #   AIservice: 
+    #     aliases: 
+    #       - frontend.docker
+    container_name: streamlit
+    restart: always
     env_file:
       - .env
     ports:
       - 8501:8501
     depends_on:
-      - web
-  
-  traefik:
-    build:
-      context: .
-      dockerfile: Dockerfile.traefik
+      - fastapi
+
+  reverse:
+    container_name: reverse
+    hostname: reverse
+    restart: always
+    build: ./nginx
     ports:
-      - 80:80
-      - 443:443
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./traefik-public-certificates:/certificates"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`dashboard-fastapi-traefik.topmusic.page`) && (PathPrefix(`/`)"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=auth"
-      - "traefik.http.middlewares.auth.basicauth.users=${USERNAME}:${PASSWORD}"
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - streamlit
+      - fastapi
 
-volumes:
-  traefik-public-certificates:
-
-networks:
-  AIservice:
-    external: true
+# networks:
+#   AIservice:
+#     external: true
 

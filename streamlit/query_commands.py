@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import requests
 from _utils import *
 
-fastapi_url = 'http://backend.docker:8000'
+fastapi_url = 'http://fastapi:8000'
 
 @st.cache_data(ttl=600)
 def pull_genre_payload():
