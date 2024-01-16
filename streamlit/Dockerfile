@@ -10,6 +10,4 @@ RUN pip install -r requirements.txt
 
 COPY . /app
 
-EXPOSE 8501
-
 CMD ["streamlit", "run", "Main.py", "--logger.level=debug"]
