@@ -28,8 +28,8 @@ services:
     restart: always
     env_file:
       - .env
-    ports:
-      - 8501:8501
+    # ports:
+    #   - 8501:8501
     depends_on:
       - fastapi
 
