@@ -5,31 +5,19 @@ services:
     build:
       context: fastapi
       dockerfile: Dockerfile
-    # networks: 
-    #   AIservice: 
-    #     aliases: 
-    #       - backend.docker
     env_file:
       - .env
     volumes:
       - .:/app
-    # expose:
-    #   - 8008
 
   streamlit:
     build:
       context: streamlit
       dockerfile: Dockerfile
-    # networks: 
-    #   AIservice: 
-    #     aliases: 
-    #       - frontend.docker
     container_name: streamlit
     restart: always
     env_file:
       - .env
-    # ports:
-    #   - 8501:8501
     depends_on:
       - fastapi
 
@@ -44,8 +32,11 @@ services:
     depends_on:
       - streamlit
       - fastapi
-
-# networks:
-#   AIservice:
-#     external: true
+    volumes:
+      - ./nginx/conf/:/etc/nginx/conf.d/:ro
+  
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./certbot/www/:/var/www/certbot/:rw
 
