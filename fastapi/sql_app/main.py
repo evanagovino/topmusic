@@ -281,7 +281,10 @@ def get_total_track_similarity_new(track_id: str,
     #Get Similar Tracks
     print('Got Data for Track', datetime.datetime.now())
     features = unskew_features_function(features, unskew_features)
-    db_tracks = crud.get_all_tracks(db)
+    if restrict_genre:
+        db_tracks = crud.get_all_tracks_genre(db, genre=genre)
+    else:
+        db_tracks = crud.get_all_tracks(db)
     print('All Tracks Call', datetime.datetime.now())
     feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
     print('Unpacked Tracks', datetime.datetime.now())

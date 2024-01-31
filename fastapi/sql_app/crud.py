@@ -18,6 +18,9 @@ def get_albums_for_artist(db: Session, artist_id: str):
 def get_all_tracks(db: Session):
     return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration.isnot(None)).all()
 
+def get_all_tracks_genre(db: Session, genre: str):
+    return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration.isnot(None)).filter(models.TrackFeatures.genre == genre).all()
+
 def get_tracks_for_artist(db: Session, artist_id: str):
     return db.query(models.TrackFeatures.album_id, models.TrackFeatures.track_name, models.TrackFeatures.track_id, models.TrackFeatures.track_popularity, models.TrackFeatures.artist_id).filter(models.TrackFeatures.artist_id == artist_id).distinct(models.TrackFeatures.album_id, models.TrackFeatures.track_name, models.TrackFeatures.track_id, models.TrackFeatures.track_popularity).all()
 
