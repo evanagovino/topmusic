@@ -18,6 +18,7 @@ def unskew_features_function(features, unskew_features=True):
 
 def unpack_tracks(db_tracks, features):
     x = {'tracks': {}}
+    print(type(db_tracks))
     for position, value in enumerate(db_tracks):
         feature_clean_list = []
         x['tracks'][value.track_id] = {}
@@ -40,6 +41,14 @@ def unpack_tracks(db_tracks, features):
     track_df = pd.DataFrame.from_dict(x['tracks'], orient='index')
     track_df = track_df.dropna()
     return track_df, feature_clean_list, x
+
+def unpack_tracks_new(db_tracks, features):
+    feature_matrix = np.empty(shape=(len(db_tracks), len(features)))
+    for position, value in enumerate(features):
+        feature_matrix[:, position] = [getattr(i, value) for i in db_tracks]
+    track_ids = [getattr(i, 'track_id') for i in db_tracks]
+    genres = [getattr(i, 'genre') for i in db_tracks]
+    return feature_matrix, track_ids, genres
 
 def unpack_genres(db_genres, features):
     x = {'genres': {}}
@@ -70,6 +79,25 @@ def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, 
     for track in similar_tracks:
         x_similar['tracks'][track] = x['tracks'][track]
     return x_similar
+
+def get_track_similarities_new(track_id, genre, feature_matrix, track_ids, genres, restrict_genre=False, n_tracks = 500):
+    if restrict_genre:
+        indices = [i for i in range(len(genres)) if genres[i] == genre]
+        feature_matrix = feature_matrix[indices,:]
+        track_ids = [track_ids[i] for i in indices]
+    position = track_ids.index(track_id)
+    results = feature_matrix[position, :].reshape(1, feature_matrix.shape[1])
+    similarities = pairwise.euclidean_distances(results, feature_matrix)
+    similar_track_locations = list(np.argsort(similarities)[0][:n_tracks])
+    similar_tracks = [track_ids[i] for i in similar_track_locations]
+    similar_scores = list(np.sort(similarities)[0][:n_tracks])
+    return similar_tracks, similar_scores
+
+
+
+
+
+
 
 def get_artist_cosine_similarities(artist_df, artist_location, matrix_values):
     distances = pairwise.cosine_similarity(matrix_values)
