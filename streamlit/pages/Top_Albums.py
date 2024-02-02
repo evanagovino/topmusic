@@ -10,24 +10,13 @@ st.set_page_config('Top Albums', layout="wide")
 
 page_header()
 
-# page_length = 50
-
 init_time = datetime.datetime.now()
-
-# if 'all_genres' not in st.session_state:
-#     st.session_state.genres_payload = pull_genre_payload()
-#     st.session_state.all_genres = pull_unique_genres(st.session_state.genres_payload)
 
 initiate_genres()
 initiate_artists()
 initiate_publications()
 
-# if 'all_publications' not in st.session_state:
-#     st.session_state.all_publications = pull_all_publications()
-
 spotipy_setup()
-
-#st.write(st.session_state)
 
 if 'track_info' in st.session_state:
     del st.session_state['track_info']
@@ -56,7 +45,6 @@ with st.sidebar:
         subgenres = []
         for genre in show_genres:
             subgenres += st.session_state.genres_payload[genre]
-        # subgenres = st.session_state.genres_payload[st.session_state.genre_selection]
         show_subgenres = st.multiselect('Subgenres', subgenres, default=None)
     else:
         show_subgenres = None
@@ -65,14 +53,12 @@ with st.sidebar:
         lists = []
         for publication in show_publications:
             lists += st.session_state.publications_payload[publication]
-        # lists = pull_relevant_lists(show_publications, show_years)
         show_lists = st.multiselect('Lists', lists, default=None)
     else:
         show_publications = None
         show_lists = None
 relevant_albums = get_relevant_albums(min_year, max_year, show_genres, show_subgenres, show_publications, show_lists)
 with st.sidebar:
-    # st.table(relevant_albums)
     if 'spotify' in st.session_state:
         with st.expander('Playback Settings', expanded=False):
             random_order = st.radio('Shuffle Playback?', [True, False], help='Shuffle order of albums played')
@@ -82,7 +68,6 @@ with st.sidebar:
         play_songs = st.button('Play songs via Spotify', help="Play songs based on above parameters")
         create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
         col1, col2, col3 = st.columns(3)
-        st.write((datetime.datetime.now() - init_time).seconds)
         with col1:
             previous_song = st.button('\u23EA')
         with col2:
@@ -128,7 +113,7 @@ with st.sidebar:
         if next_song:
             spotipy_next_track()
         if 'spotipy_error' in st.session_state:
-            st.write(st.session_state.spotipy_error)
-#st.write(st.session_state)
+            if st.session_state.spotipy_error:
+                st.write(st.session_state.spotipy_error)
 show_albums(relevant_albums, 0, 50, show_subgenres)
 spotify_player()

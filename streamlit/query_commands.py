@@ -167,7 +167,6 @@ def get_relevant_albums(min_year,
     else:
         base_api += '&list='
     relevant_albums = requests.get(base_api)
-
     result_df = pd.DataFrame.from_dict(relevant_albums.json()['albums'], orient='index')
     result_df['weighted_rank_pct'] = result_df['weighted_rank'] / result_df['weighted_rank'].sum()
     return result_df
@@ -188,10 +187,8 @@ def return_tracks(albums,
                                     replace=replace_albums, 
                                     size=request_length, 
                                     p=albums['weighted_rank_pct'])
-    # st.write(album_choice)
     track_results = retrieve_tracks_payload(album_ids=album_choice)
     tracks = pd.DataFrame(track_results)
-    # st.write(tracks)
     final_tracks = []
     for album in album_choice:
         available = len(tracks[tracks['album_id'] == album]['track_id'])
@@ -204,7 +201,6 @@ def return_tracks(albums,
     track_results_two = pd.DataFrame(track_results)
     df = df.merge(pd.DataFrame(track_results_two), left_on='tracks', right_on='track_id')
     df.index = df['tracks']
-    #st.write(df)
     return df
 
 @st.cache_data
@@ -230,9 +226,8 @@ def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
     if accolades.status_code == 200:
         return accolades.json()['albums']
 
+# @st.cache_data
 def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
-    # album_keys = list(df['album_uri'].unique())
-    #accolades = pull_relevant_albums_accolades(album_keys)
     unique_albums = list(df['album_id'].unique())
     st.session_state.album_accolades = get_album_accolades_multiple_albums(unique_albums)
     print(st.session_state.album_accolades)
@@ -249,7 +244,6 @@ def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
         with col1:
             st.image(image, use_column_width=True)
         with col2:
-            # st.markdown(f'#{position + 1}')
             st.subheader(f'#{position + 1}')
             st.subheader(artist)
             st.subheader(album)
@@ -268,12 +262,10 @@ def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
                 else:
                     st.write('No streaming available for this album :(')
 
+# @st.cache_data
 def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
-    # album_keys = list(df['album_uri'].unique())
-    #accolades = pull_relevant_albums_accolades(album_keys)
     df['count'] = range(len(df))
     st.session_state.album_accolades = get_album_accolades_multiple_albums(list(df['album_id'].unique()))
-    #print(df.head())
     df = df.groupby(['album_id', 'artist', 'album_name', 'genre', 'subgenre', 'year', 'image_url', 'album_url'])['count'].min().reset_index().sort_values('count')
     df.index = range(len(df))
     bigcol1, bigcol2 = st.columns([1,1], gap='large')
@@ -281,7 +273,6 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
     position = 0
     while (position + 1) < total_min:
         with bigcol1:
-                #st.write(position, df['count'][position])
                 album_key = df['album_id'][position]
                 artist = df['artist'][position]
                 album = df['album_name'][position]
@@ -294,7 +285,6 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
                 with col1:
                     st.image(image, use_column_width=True)
                 with col2:
-                    #st.subheader(f'#{position + 1}')
                     st.subheader(artist)
                     st.subheader(album)
                     if show_subgenres == None:
@@ -312,7 +302,6 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
                         else:
                             st.write('No streaming available for this album :(')
         with bigcol2:
-                #st.write(position, df['count'][position + 1])
                 album_key = df['album_id'][position + 1]
                 artist = df['artist'][position + 1]
                 album = df['album_name'][position + 1]
@@ -325,7 +314,6 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
                 with col1:
                     st.image(image, use_column_width=True)
                 with col2:
-                    #st.subheader(f'#{position + 1}')
                     st.subheader(artist)
                     st.subheader(album)
                     if show_subgenres == None:

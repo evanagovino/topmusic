@@ -39,13 +39,12 @@ def spotipy_error_message(func):
         if 'client_creds' in kwargs:
             pass
         elif 'spotify' not in st.session_state:
-            st.session_state.spotify = spotipy.Spotify(auth_manager=session.auth_manager)
+            st.session_state.spotify = spotipy.Spotify(auth_manager=st.session_state.auth_manager)
         try:
             st.session_state.spotipy_error = None
             try:
                 return func(*args, **kwargs)
             except:
-                st.write('1 second sleep')
                 time.sleep(1)
                 return func(*args, **kwargs)
 
@@ -101,7 +100,6 @@ def spotipy_current_playback():
 # @st.cache_data
 def spotipy_currently_playing(time_sleep=0, max_time_sleep=2):
     time.sleep(time_sleep)
-    st.write(time_sleep)
     try:
         current_song = st.session_state.spotify.currently_playing()
         payload = {'song_name': current_song['item']['name'],
@@ -113,15 +111,9 @@ def spotipy_currently_playing(time_sleep=0, max_time_sleep=2):
         return payload
 
     except Exception as e:
-        #print(e)
-        #print('current song failed')
-        #st.write(e)
         time_sleep += 1
         if time_sleep < max_time_sleep:
             spotipy_currently_playing(time_sleep=time_sleep)
-        # else:
-        #     st.write(e)
-            #st.session_state.spotipy_error = e.msg
 
 @spotipy_error_message
 def spotipy_me():
@@ -166,7 +158,6 @@ def spotipy_setup():
             client_secret=st.session_state['SPOTIPY_CLIENT_SECRET']
             )
         st.session_state.spotify_client_creds = spotipy.Spotify(client_credentials_manager=client_creds)
-    # print('client creds', st.session_state.spotify_client_creds)
     url_params = st.query_params
     if 'code' in url_params:
         print('code acknowledged', url_params['code'])
@@ -181,26 +172,6 @@ def spotipy_setup():
             print(e)
     else:
         print('code not acknowledged', url_params)
-    # try:
-    #     if 'auth_manager' not in st.session_state:
-    #         st.session_state.auth_manager= setup_auth_manager()
-    #     st.session_state.token_info = get_access_token(st.session_state.auth_manager)
-    #     #print('token', st.session_state.token_info)
-    #     st.session_state.spotify = spotipy.Spotify(auth_manager=st.session_state.auth_manager)
-    # except Exception as e:
-    #     print(e)
-    # try:
-    #     if 'auth_manager' not in st.session_state:
-    #         st.session_state.auth_manager= setup_auth_manager()
-    #     # st.session_state.token_info = get_access_token(st.session_state.auth_manager)
-    #     st.session_state.spotify = spotipy.Spotify(auth_manager=st.session_state.auth_manager)
-    # #     print('token')
-    # #     print('token', st.session_state.token_info)
-    # #     print('auth manager', st.session_state.auth_manager)
-    # #     if 'spotify' not in st.session_state:
-    # #         st.session_state.spotify = spotipy.Spotify(auth_manager=st.session_state.auth_manager)
-    # except Exception as e:
-    #     print('error', e)
 
 def spotify_player():
     with st.sidebar:
@@ -213,8 +184,6 @@ def spotify_player():
                         playlist_link = f'https://open.spotify.com/playlist/{st.session_state.playlist_id}'
                         link = f'[Click here to see your created playlist]({playlist_link})'
                         st.markdown(link, unsafe_allow_html=True)
-                # container = st.expander('Currently Playing', expanded=False)
-                # with container:
                 payload = spotipy_currently_playing(time_sleep=0, max_time_sleep=2)
                 if payload:
                     st.image('https://storage.googleapis.com/pr-newsroom-wp/1/2018/11/Spotify_Logo_RGB_Green.png', width=100)
@@ -224,21 +193,11 @@ def spotify_player():
                     st.markdown(f"[{payload['album_name']}]({payload['album_link']})")
                     if 'album_url' in payload:
                         st.image(payload['album_url'])
-                try:
-                    if 'spotify_device' not in st.session_state:
-                        st.session_state.spotify_device = st.session_state.spotify.devices()['devices'][0]['id']
-                    else:
-                        pass
-                    st.write(st.session_state.spotify_device)
-                except Exception as e:
-                    #st.write(e)
-                    st.write('Unable to find device ID')
             else:
                 if 'auth_manager' not in st.session_state:
                     st.session_state.auth_manager= setup_auth_manager()
                 auth_url = st.session_state.auth_manager.get_authorize_url()
                 link = f'[Authenticate Here to Create Custom Playlists]({auth_url})'
                 st.markdown(link, unsafe_allow_html=True)
-        #st.write(st.session_state)
 
 

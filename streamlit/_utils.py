@@ -1,14 +1,6 @@
 import streamlit as st
 import numpy as np
 
-# st.markdown("""
-# <style>
-# .big-font {
-#     font-size:15px;
-# }
-# </style>
-# """, unsafe_allow_html=True)
-
 def normalize_weights(weights):
     weight_sum = np.sum(weights)
     if weight_sum > 0:
@@ -42,6 +34,5 @@ def get_publication_for_playlist(show_publications):
 
 def page_header():
     st.header('TopMusic')
-    # st.markdown('<p class="big-font">Hello World !!</p>', unsafe_allow_html=True)
     st.subheader('A new way to discover music.')
         

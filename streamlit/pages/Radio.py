@@ -97,24 +97,6 @@ with st.sidebar:
         else:
             if 'track_id' not in st.session_state:
                 song_callback()
-if 'genre_selection' in st.session_state:
-    st.write('Genre:', st.session_state.genre_selection)
-if 'subgenre_selection' in st.session_state:
-    st.write('Subgenre:', st.session_state.subgenre_selection)
-# Show selected Artist + Album + Song
-if 'artist_selection' in st.session_state:
-    st.write('Artist:', st.session_state.artist_selection)
-if 'artist_id' in st.session_state:
-    st.write('Artist ID:', st.session_state.artist_id)
-if 'album_selection' in st.session_state:
-    st.write('Album:', st.session_state.album_selection)
-if 'album_id' in st.session_state:
-    if st.session_state.album_id != 'None':
-        st.write('Album ID:', st.session_state.album_id)
-if 'song_selection' in st.session_state:
-    st.write('Song:', st.session_state.song_selection)
-if 'track_id' in st.session_state:
-    st.write('Track ID:', st.session_state.track_id)
 if 'song_selection' in st.session_state:
     display = st.session_state.song_selection
 elif 'album_selection' in st.session_state:
@@ -127,15 +109,13 @@ elif 'genre_selection' in st.session_state:
     display = st.session_state.genre_selection
 else:
     display = None
-st.write('Display', display)
 playback_settings = st.expander('Playback Settings', expanded=False)
 with playback_settings:
     model_features = st.multiselect(
                 'Song features to include in model',
                 feature_list,
                 default=feature_list,
-                key='model_features',
-                # on_change=features_callback
+                key='model_features'
                 )
     restrict_genre = st.checkbox('Restrict To Same Genre', key='restrict_genre', value=True)
     unskew_features = st.checkbox('Unskew Features', value=True, key='unskew_features')
@@ -165,7 +145,7 @@ with st.sidebar:
                             spotify_create_playlist(tracks=st.session_state.track_uris,
                                                     year=text_year, 
                                                     genre=display, 
-                                                    publication=None, 
+                                                    publication='', 
                                                     )
                         elif radio_type == 'Artist':
                             spotify_create_playlist(tracks=st.session_state.track_uris,
@@ -194,12 +174,6 @@ with st.sidebar:
             spotipy_previous_track()
         if next_song:
             spotipy_next_track()
-        # if 'spotipy_error' in st.session_state:
-        #     st.write(st.session_state.spotipy_error)
-        # if st.session_state.playlist_id:
-        #     playlist_link = f'https://open.spotify.com/playlist/{st.session_state.playlist_id}'
-        #     link = f'[Click here to see your created playlist]({playlist_link})'
-        #     st.markdown(link, unsafe_allow_html=True)
 
 spotify_player()
 

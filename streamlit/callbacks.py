@@ -3,8 +3,6 @@ import numpy as np
 from query_commands import *
 from _utils import *
 
-cutoff = 65
-
 def radio_type_callback():
     st.write(st.session_state.radio_type)
     if st.session_state.radio_type == 'Genre':
