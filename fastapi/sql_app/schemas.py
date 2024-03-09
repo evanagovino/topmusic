@@ -8,6 +8,12 @@ class Genres(BaseModel):
     class Config:
         orm_mode = True
 
+class GenresList(BaseModel):
+    genres: list
+
+    class Config:
+        orm_mode = True
+
 class Publications(BaseModel):
     publications: dict
 

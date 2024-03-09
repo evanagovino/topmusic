@@ -37,6 +37,26 @@ def get_distinct_genres(db: Session = Depends(get_db)):
             x['genres'][i[0]] = [i[1]]
     return x
 
+@app.get("/genres_new/", response_model=schemas.GenresList)
+def get_distinct_genres_new(db: Session = Depends(get_db)):
+    db_genre = crud.get_unique_genres(db)
+    x = {'genres': []}
+    for i in db_genre:
+        genre = i[0]
+        subgenre = i[1]
+        genre_not_present = True
+        for value in x['genres']:
+            if value['name'] == genre:
+                if subgenre in value['subgenres']:
+                    pass
+                else:
+                    value['subgenres'].append(subgenre)
+                genre_not_present = False
+                continue
+        if genre_not_present:
+            x['genres'].append({'name': genre, 'subgenres': [subgenre]})
+    return x
+
 @app.get("/publications/", response_model=schemas.Publications)
 def get_distinct_publications(db: Session = Depends(get_db)):
     db_genre = crud.get_unique_publications(db)
