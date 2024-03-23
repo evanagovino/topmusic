@@ -258,6 +258,45 @@ def get_relevant_albums(min_year: int,
     x['albums'] = new_dict
     return x
 
+@app.get("/get_relevant_albums_new/", response_model=schemas.AlbumsList)
+def get_relevant_albums_new(min_year: int, 
+                            max_year: int, 
+                            genre: List[str] = Query([None]), 
+                            subgenre: List[str] = Query([None]), 
+                            publication: List[str] =Query([None]), 
+                            list: List[str] = Query([None]), 
+                            points_weight: float = 0.5, 
+                            db: Session = Depends(get_db)
+                            ):
+    db_albums = crud.get_relevant_albums(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication, list=list)
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    x = {'albums': []}
+    for position, value in enumerate(db_albums):
+        #print(value)
+        x['albums'].append({'artist': value.artist,
+                            'album_id': value.album_uri,
+                            'album_url': value.album_url,
+                            'image_url': value.image_url,
+                            'album': value.album,
+                            'genre': value.genre,
+                            'subgenre': value.subgenre,
+                            'year': value.year,
+                            'points': value[8],
+                            'total_points': value[8],
+                            'points_pct': value[8] / value[9]
+                            })
+    # album_uris = [i for i in x['albums']]
+    points_position = stats.rankdata([i['points'] for i in x['albums']])
+    points_pct_position = stats.rankdata([i['points_pct'] for i in x['albums']])
+    for position, value in enumerate(points_position):
+        x['albums'][position]['points_rank'] = float(value)
+    for position, value in enumerate(points_pct_position):
+        x['albums'][position]['points_pct_rank'] = float(value)
+        x['albums'][position]['weighted_rank'] = ((x['albums'][position]['points_rank'] * points_weight) + (x['albums'][position]['points_pct_rank'] * (1 - points_weight)))
+    x['albums'] = sorted(x['albums'], key=lambda x: (x['weighted_rank']), reverse=True)[:50] #hardcode for now
+    return x
+
 @app.get("/get_similar_artists/{artist_id}", response_model=schemas.Artists)
 def get_similar_artists(artist_id: str, 
                         db: Session = Depends(get_db)
