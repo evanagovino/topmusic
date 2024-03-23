@@ -76,6 +76,14 @@ def get_distinct_artists(db: Session = Depends(get_db)):
         x['artists'][i.artist] = i.artist_id
     return x
 
+@app.get("/artists_new/", response_model=schemas.ArtistsList)
+def get_distinct_artists_new(db: Session = Depends(get_db)):
+    db_artist = crud.get_artist_name_ids(db)
+    x = {'artists': []}
+    for i in db_artist:
+        x['artists'].append({'name': i.artist, 'id': i.artist_id})
+    return x
+
 @app.get("/albums_for_artist/{artist_id}", response_model=schemas.Albums)
 def get_albums_for_artist(artist_id: str, db: Session = Depends(get_db)):
     db_album = crud.get_albums_for_artist(db, artist_id=artist_id)

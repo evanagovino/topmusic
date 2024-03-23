@@ -26,6 +26,12 @@ class Artists(BaseModel):
     class Config:
         orm_mode = True
 
+class ArtistsList(BaseModel):
+    artists: list
+
+    class Config:
+        orm_mode = True
+
 class Tracks(BaseModel):
     tracks: dict
 
