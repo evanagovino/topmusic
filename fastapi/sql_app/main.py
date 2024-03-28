@@ -265,7 +265,8 @@ def get_relevant_albums_new(min_year: int,
                             subgenre: List[str] = Query([None]), 
                             publication: List[str] =Query([None]), 
                             list: List[str] = Query([None]), 
-                            points_weight: float = 0.5, 
+                            points_weight: float = 0.5,
+                            randomize: bool = False,
                             db: Session = Depends(get_db)
                             ):
     db_albums = crud.get_relevant_albums(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication, list=list)
@@ -273,7 +274,6 @@ def get_relevant_albums_new(min_year: int,
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     x = {'albums': []}
     for position, value in enumerate(db_albums):
-        #print(value)
         x['albums'].append({'artist': value.artist,
                             'album_id': value.album_uri,
                             'album_url': value.album_url,
@@ -294,7 +294,14 @@ def get_relevant_albums_new(min_year: int,
     for position, value in enumerate(points_pct_position):
         x['albums'][position]['points_pct_rank'] = float(value)
         x['albums'][position]['weighted_rank'] = ((x['albums'][position]['points_rank'] * points_weight) + (x['albums'][position]['points_pct_rank'] * (1 - points_weight)))
-    x['albums'] = sorted(x['albums'], key=lambda x: (x['weighted_rank']), reverse=True)[:50] #hardcode for now
+    if not randomize:
+        x['albums'] = sorted(x['albums'], key=lambda x: (x['weighted_rank']), reverse=True)[:50] #hardcode for now
+    else:
+        positions, points = [x for x in zip(*[(position, value['points']) for position, value in enumerate(x['albums'])])]
+        points = normalize_weights(points)
+        album_choice = np.random.choice(positions, size=50, replace=False, p=points)
+        print('log', type(album_choice), len(album_choice))
+        x['albums'] = [x['albums'][i] for i in album_choice]
     return x
 
 @app.get("/get_similar_artists/{artist_id}", response_model=schemas.Artists)
