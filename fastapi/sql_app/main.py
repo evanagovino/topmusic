@@ -299,7 +299,7 @@ def get_relevant_albums_new(min_year: int,
     else:
         positions, points = [x for x in zip(*[(position, value['points']) for position, value in enumerate(x['albums'])])]
         points = normalize_weights(points)
-        array_size = min(len(x['albums'], 50))
+        array_size = min(len(x['albums']), 50)
         album_choice = np.random.choice(positions, size=array_size, replace=False, p=points)
         x['albums'] = [x['albums'][i] for i in album_choice]
     return x
