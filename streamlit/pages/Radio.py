@@ -51,11 +51,11 @@ with st.sidebar:
         if st.session_state.subgenre_selection == 'All':
             del st.session_state['subgenre_selection']
         min_year = st.selectbox('First Year', 
-                                range(2010,2024), 
+                                range(2010,2025), 
                                 index=0,
                                 key='min_year')
         max_year = st.selectbox('Last Year', 
-                                list(range(2010,2024))[::-1], 
+                                list(range(2010,2025))[::-1], 
                                 index=0,
                                 key='max_year')
         show_years = list(range(min_year, max_year + 1))
