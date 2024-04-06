@@ -93,12 +93,6 @@ def get_track_similarities_new(track_id, genre, feature_matrix, track_ids, genre
     similar_scores = list(np.sort(similarities)[0][:n_tracks])
     return similar_tracks, similar_scores
 
-
-
-
-
-
-
 def get_artist_cosine_similarities(artist_df, artist_location, matrix_values):
     distances = pairwise.cosine_similarity(matrix_values)
     distance_results = np.sort(distances[artist_location])[::-1]
@@ -118,3 +112,25 @@ def get_genre_similarities(genre_df, genre):
     for position, value in enumerate(genre_results):
         x['genres'][value] = float(distance_results[position])
     return x
+
+def get_random_track(db, weight_by_popularity = True):
+    '''
+    This is currently set up a bit arbitrarily since I'm not sure if I want utils talking to crud
+    Assumes that DB has:
+    value[1] = 'track_name'
+    value[2] = 'track_id'
+    value[3] = 'popularity'
+    '''
+    tracks = {'tracks': []}
+    for position, value in enumerate(db):
+        tracks['tracks'].append({'track_name': value[1],
+                                 'track_id': value[2],
+                                 'popularity': value[3]
+                                })
+    if weight_by_popularity:
+        weights = [i['popularity'] for i in tracks['tracks']]
+    else:
+        weights = [1 for i in tracks['tracks']]
+    weights = normalize_weights(weights)
+    track_choice = np.random.choice([i['track_id'] for i in tracks['tracks']], p=weights)
+    return track_choice

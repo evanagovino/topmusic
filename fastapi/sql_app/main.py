@@ -26,6 +26,75 @@ def get_db():
     finally:
         db.close()
 
+# Helper Functions - Utils Functions Using DB
+        
+def _get_relevant_albums(db, 
+                         min_year, 
+                         max_year, 
+                         genre, 
+                         subgenre, 
+                         publication, 
+                         list, 
+                         points_weight, 
+                         album_uri_required):
+    db_albums = crud.get_relevant_albums(db, 
+                                         min_year=min_year, 
+                                         max_year=max_year, 
+                                         genre=genre, 
+                                         subgenre=subgenre, 
+                                         publication=publication, 
+                                         list=list,
+                                         album_uri_required=album_uri_required)
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    x = {'albums': []}
+    for position, value in enumerate(db_albums):
+        x['albums'].append({'artist': value.artist,
+                            'album_id': value.album_uri,
+                            'album_url': value.album_url,
+                            'image_url': value.image_url,
+                            'album': value.album,
+                            'genre': value.genre,
+                            'subgenre': value.subgenre,
+                            'year': value.year,
+                            'points': value[8],
+                            'total_points': value[8],
+                            'points_pct': value[8] / value[9]
+                            })
+    # album_uris = [i for i in x['albums']]
+    points_position = stats.rankdata([i['points'] for i in x['albums']])
+    points_pct_position = stats.rankdata([i['points_pct'] for i in x['albums']])
+    for position, value in enumerate(points_position):
+        x['albums'][position]['points_rank'] = float(value)
+    for position, value in enumerate(points_pct_position):
+        x['albums'][position]['points_pct_rank'] = float(value)
+        x['albums'][position]['weighted_rank'] = ((x['albums'][position]['points_rank'] * points_weight) + (x['albums'][position]['points_pct_rank'] * (1 - points_weight)))
+    return x
+
+def _get_tracks_for_albums(db, album_ids):
+    db_album = crud.get_tracks_for_albums(db, album_ids=album_ids)
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="Album not found")
+    x = {'tracks': []}
+    for position, value in enumerate(db_album):
+        track_info = {'album_id': value[0],
+                     'track_name': value[1],
+                     'track_id': value[2],
+                     'popularity': value[3],
+                     'artist': value[4],
+                     'album_name': value[5],
+                     'genre': value[6],
+                     'subgenre': value[7],
+                     'year': value[8],
+                     'image_url': value[9],
+                     'album_url': value[10]
+                     }
+        x['tracks'].append(track_info)  
+    return x
+
+# Endpoints
+
+
 @app.get("/genres/", response_model=schemas.Genres)
 def get_distinct_genres(db: Session = Depends(get_db)):
     db_genre = crud.get_unique_genres(db)
@@ -79,6 +148,16 @@ def get_distinct_artists(db: Session = Depends(get_db)):
 @app.get("/artists_new/", response_model=schemas.ArtistsList)
 def get_distinct_artists_new(db: Session = Depends(get_db)):
     db_artist = crud.get_artist_name_ids(db)
+    x = {'artists': []}
+    for i in db_artist:
+        x['artists'].append({'name': i.artist, 'id': i.artist_id})
+    return x
+
+@app.get("/artist_id_from_artist_name/{artist_name}", response_model=schemas.ArtistsList)
+def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_db)):
+    db_artist = crud.get_artist_id_from_name(db, artist_name=artist_name)
+    if db_artist is None:
+        raise HTTPException(status_code=404, detail="Artist not found")
     x = {'artists': []}
     for i in db_artist:
         x['artists'].append({'name': i.artist, 'id': i.artist_id})
@@ -226,7 +305,15 @@ def get_relevant_albums(min_year: int,
                         points_weight: float = 0.5, 
                         db: Session = Depends(get_db)
                         ):
-    db_albums = crud.get_relevant_albums(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication, list=list)
+    db_albums = crud.get_relevant_albums(db, 
+                                         min_year=min_year, 
+                                         max_year=max_year, 
+                                         genre=genre, 
+                                         subgenre=subgenre, 
+                                         publication=publication, 
+                                         list=list,
+                                         album_uri_required=False
+                                         )
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     x = {'albums': {}}
@@ -269,31 +356,41 @@ def get_relevant_albums_new(min_year: int,
                             randomize: bool = False,
                             db: Session = Depends(get_db)
                             ):
-    db_albums = crud.get_relevant_albums(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication, list=list)
-    if db_albums is None:
-        raise HTTPException(status_code=404, detail="No albums that match criteria")
-    x = {'albums': []}
-    for position, value in enumerate(db_albums):
-        x['albums'].append({'artist': value.artist,
-                            'album_id': value.album_uri,
-                            'album_url': value.album_url,
-                            'image_url': value.image_url,
-                            'album': value.album,
-                            'genre': value.genre,
-                            'subgenre': value.subgenre,
-                            'year': value.year,
-                            'points': value[8],
-                            'total_points': value[8],
-                            'points_pct': value[8] / value[9]
-                            })
-    # album_uris = [i for i in x['albums']]
-    points_position = stats.rankdata([i['points'] for i in x['albums']])
-    points_pct_position = stats.rankdata([i['points_pct'] for i in x['albums']])
-    for position, value in enumerate(points_position):
-        x['albums'][position]['points_rank'] = float(value)
-    for position, value in enumerate(points_pct_position):
-        x['albums'][position]['points_pct_rank'] = float(value)
-        x['albums'][position]['weighted_rank'] = ((x['albums'][position]['points_rank'] * points_weight) + (x['albums'][position]['points_pct_rank'] * (1 - points_weight)))
+    # db_albums = crud.get_relevant_albums(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication, list=list)
+    # if db_albums is None:
+    #     raise HTTPException(status_code=404, detail="No albums that match criteria")
+    # x = {'albums': []}
+    # for position, value in enumerate(db_albums):
+    #     x['albums'].append({'artist': value.artist,
+    #                         'album_id': value.album_uri,
+    #                         'album_url': value.album_url,
+    #                         'image_url': value.image_url,
+    #                         'album': value.album,
+    #                         'genre': value.genre,
+    #                         'subgenre': value.subgenre,
+    #                         'year': value.year,
+    #                         'points': value[8],
+    #                         'total_points': value[8],
+    #                         'points_pct': value[8] / value[9]
+    #                         })
+    # # album_uris = [i for i in x['albums']]
+    # points_position = stats.rankdata([i['points'] for i in x['albums']])
+    # points_pct_position = stats.rankdata([i['points_pct'] for i in x['albums']])
+    # for position, value in enumerate(points_position):
+    #     x['albums'][position]['points_rank'] = float(value)
+    # for position, value in enumerate(points_pct_position):
+    #     x['albums'][position]['points_pct_rank'] = float(value)
+    #     x['albums'][position]['weighted_rank'] = ((x['albums'][position]['points_rank'] * points_weight) + (x['albums'][position]['points_pct_rank'] * (1 - points_weight)))
+    x = _get_relevant_albums(db, 
+                             min_year,
+                             max_year, 
+                             genre, 
+                             subgenre, 
+                             publication, 
+                             list, 
+                             points_weight,
+                             album_uri_required=False
+                             )
     if not randomize:
         x['albums'] = sorted(x['albums'], key=lambda x: (x['weighted_rank']), reverse=True)[:50] #hardcode for now
     else:
@@ -303,6 +400,57 @@ def get_relevant_albums_new(min_year: int,
         album_choice = np.random.choice(positions, size=array_size, replace=False, p=points)
         x['albums'] = [x['albums'][i] for i in album_choice]
     return x
+
+@app.get("/get_recommended_tracks/", response_model=schemas.TracksList)
+def get_recommended_tracks(artist_id: str = None,
+                           genre: str = None, 
+                           db: Session = Depends(get_db)
+                           ):
+    if artist_id is None and genre is None:
+        raise HTTPException(status_code=404, detail="Artist ID or Genre must be provided")
+    if artist_id:
+        db_artist = crud.get_tracks_for_artist(db, artist_id=artist_id)
+        if db_artist is None:
+            raise HTTPException(status_code=404, detail="Artist not found")
+        track_id = get_random_track(db_artist)
+        return get_total_track_similarity_copy(track_id,
+                                               features = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'], 
+                                               unskew_features = True, 
+                                               restrict_genre = True, 
+                                               n_tracks = 500,
+                                               request_length = 50,
+                                               duration_min = 0,
+                                               db = db
+                                               )
+    elif genre:
+        x = _get_relevant_albums(db, 
+                                 min_year=2010, 
+                                 max_year=2023, 
+                                 genre=[genre], 
+                                 subgenre=[''], 
+                                 publication=[''], 
+                                 list=[''], 
+                                 points_weight=0.5,
+                                 album_uri_required=True
+                                 )
+        album_ids, points = [x for x in zip(*[(value['album_id'], value['points']) for position, value in enumerate(x['albums'])])]
+        points = normalize_weights(points)
+        array_size = min(len(x['albums']), 50)
+        album_choice = np.random.choice(album_ids, size=array_size, replace=False, p=points)
+        tracks = _get_tracks_for_albums(db, album_choice)
+        x = {'tracks': []}
+        track_selection = []
+        for album in album_choice:
+            print('ALBUM', album)
+            temp_tracks = [i for i in tracks['tracks'] if i['album_id'] == album]
+            positions, points = [x for x in zip(*[(position, value['popularity']) for position, value in enumerate(temp_tracks)])]
+            points = normalize_weights(points)
+            album_choice = np.random.choice(positions, replace=False, p=points)
+            x['tracks'].append(temp_tracks[album_choice])
+        return x
+
+        
+
 
 @app.get("/get_similar_artists/{artist_id}", response_model=schemas.Artists)
 def get_similar_artists(artist_id: str, 
@@ -414,6 +562,89 @@ def get_total_track_similarity_new(track_id: str,
     df = df[df.index.isin(song_selections)]
     final_x = {}
     final_x['tracks'] = json.loads(df.to_json(orient='index'))
+    print('Finish Job', datetime.datetime.now())
+    return final_x
+
+def get_total_track_similarity_copy(track_id: str, 
+                                   features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                                   unskew_features: bool = True, 
+                                   restrict_genre: bool = True, 
+                                   n_tracks: int = 500,
+                                   request_length: int = 50,
+                                   duration_min: int = 0,
+                                   db: Session = Depends(get_db)
+                                   ):
+    #Get Data For Track
+    print('Request Start', datetime.datetime.now())
+    db_track_data = crud.get_track_data(db, track_id=track_id)
+    if db_track_data is None:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    artist_id = db_track_data[0].artist_id
+    genre = db_track_data[0].genre
+    #Get Similar Tracks
+    print('Got Data for Track', datetime.datetime.now())
+    features = unskew_features_function(features, unskew_features)
+    if restrict_genre:
+        db_tracks = crud.get_all_tracks_genre(db, genre=genre)
+    else:
+        db_tracks = crud.get_all_tracks(db)
+    print('All Tracks Call', datetime.datetime.now())
+    feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
+    print('Unpacked Tracks', datetime.datetime.now())
+    if track_id not in track_ids:
+        raise HTTPException(status_code=404, detail="Track not found")
+    similar_tracks, similar_scores = get_track_similarities_new(track_id, genre, feature_matrix, track_ids, genres)
+    temp_similar_tracks_dict = {}
+    for position, value in enumerate(similar_tracks):
+        temp_similar_tracks_dict[value] = similar_scores[position]
+    similar_track_data = [i for i in db_tracks if i.track_id in similar_tracks]
+    track_df, feature_clean_list, x_similar = unpack_tracks(similar_track_data, features)
+    for x in x_similar['tracks']:
+        x_similar['tracks'][x]['similarity_score'] = temp_similar_tracks_dict[x]
+    df = pd.DataFrame.from_dict(x_similar['tracks'], orient='index')
+    print('Got Similar Tracks', datetime.datetime.now())
+    #Get Similar Artists For Track
+    db_albums = crud.get_similar_artists(db)
+    x = {'artists': {}}
+    for position, value in enumerate(db_albums):
+        x['artists'][value.artist_id] = value.publication_data
+    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
+    try:
+        artist_location = np.where(artist_df.index == artist_id)[0][0]
+    except:
+        raise HTTPException(status_code=404, detail="No artists that match criteria")
+    matrix_values = artist_df.apply(pd.Series)
+    x_artist = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
+    df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
+    df_artist.columns = ['artist_similarity_score']
+    df = df.merge(df_artist, left_on='artist_id', right_index=True)
+    print('Got Similar Artists For Track', datetime.datetime.now())
+    #Get Similar Genres For Track
+    if restrict_genre:
+        df['genre_similarity_score'] = 0
+    else:
+        db_genres = crud.get_similar_genres(db)
+        genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
+        if genre not in genre_df.index:
+            raise HTTPException(status_code=404, detail="Genre not found")
+        x_genre = get_genre_similarities(genre_df, genre)
+        df_genre = pd.DataFrame.from_dict(x_genre['genres'], orient='index')
+        df_genre.columns = ['genre_similarity_score']
+        df = df.merge(df_genre, left_on='genre', right_index=True)
+    print('Got Similar Genres For Track', datetime.datetime.now())
+    df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
+    df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
+    df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['artist_similarity_score'] * 0.15) + (df['genre_score_n'] * 0.15)
+    df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
+    df = df[df['artist_rank'] <= 5]
+    df['reweighted_score'] = normalize_weights(df['weighted_score'])
+    request_length = min(request_length, len(df))
+    song_selections = np.random.choice(df.index, size=request_length, replace=False, p=df['reweighted_score'])
+    df = df[df.index.isin(song_selections)]
+    df = df.reset_index()
+    df = df.rename(columns={'index': 'track_id'})
+    final_x = {}
+    final_x['tracks'] = json.loads(df.to_json(orient='records'))
     print('Finish Job', datetime.datetime.now())
     return final_x
 

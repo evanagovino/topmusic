@@ -84,7 +84,6 @@ class ArtistPublications(Base):
     artist_id = Column(String, primary_key=True)
     publication_data = Column(String)
 
-
     
 
 
