@@ -153,7 +153,7 @@ def get_distinct_artists_new(db: Session = Depends(get_db)):
         x['artists'].append({'name': i.artist, 'id': i.artist_id})
     return x
 
-@app.get("/artist_id_from_artist_name/{artist_name}", response_model=schemas.ArtistsList)
+@app.get("/artist_id_from_artist_name/", response_model=schemas.ArtistsList)
 def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_db)):
     db_artist = crud.get_artist_id_from_name(db, artist_name=artist_name)
     if db_artist is None:
