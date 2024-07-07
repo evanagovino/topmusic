@@ -203,7 +203,7 @@ def return_tracks(albums,
     df.index = df['tracks']
     return df
 
-@st.cache_data
+# @st.cache_data
 def get_album_accolades(album_id, n_accolades=10):
     if 'album_accolades' in st.session_state:
         if st.session_state['album_accolades']:
@@ -217,7 +217,7 @@ def get_album_accolades(album_id, n_accolades=10):
             else:
                 st.write('No Accolades Found For Album')
 
-@st.cache_data
+# @st.cache_data
 def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
     base_id = f'{fastapi_url}/get_album_accolades_multiple_albums/?'
     for album in album_ids:
