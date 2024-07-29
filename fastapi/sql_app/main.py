@@ -797,7 +797,7 @@ def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
         for feature in ['rank', 'points', 'publication', 'list']:
             new_value[feature] = getattr(value, feature)
         x['albums'][album_uri].append(new_value)
-    print(x['albums'])
+    #print(x['albums'])
     for album in x['albums']:
         new_dict = []
         counting_value = 0
