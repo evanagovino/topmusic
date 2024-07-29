@@ -166,7 +166,7 @@ def spotipy_setup():
             if 'auth_manager' not in st.session_state:
                 st.session_state.auth_manager= setup_auth_manager()
             st.session_state.token_info = st.session_state.auth_manager.get_access_token(st.session_state.code)
-            print('token', st.session_state.token_info)
+            #print('token', st.session_state.token_info)
             st.session_state.spotify = spotipy.Spotify(auth_manager=st.session_state.auth_manager)
         except Exception as e:
             print(e)
