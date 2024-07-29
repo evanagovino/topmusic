@@ -90,7 +90,7 @@ def retrieve_tracks_payload(artist_id=None, album_id=None, album_ids=None):
         base_id = f'{fastapi_url}/tracks_for_albums/?'
         for album in album_ids:
             base_id += f'&album_ids={album}'
-        print(base_id)
+        #print(base_id)
         tracks_raw = requests.get(base_id)
     elif album_id is not None:
         base_id = f'{fastapi_url}/tracks_for_album/{album_id}'
@@ -230,7 +230,7 @@ def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
 def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
     unique_albums = list(df['album_id'].unique())
     st.session_state.album_accolades = get_album_accolades_multiple_albums(unique_albums)
-    print(st.session_state.album_accolades)
+    #print(st.session_state.album_accolades)
     for position in range(list_start, min(list_end, len(df))):
         album_key = df['album_id'][position]
         artist = df['artist'][position]
