@@ -29,7 +29,7 @@ with st.sidebar:
         st.markdown('[Disconnect](https://topmusic.page)')
     year_selection = st.selectbox('One or Multiple Years?', ['One Year', 'Multiple Years'], index=0)
     if year_selection == 'One Year':
-        show_years = st.selectbox('Year', list(range(2010,2025))[::-1], index=0)
+        show_years = st.selectbox('Year', list(range(2000,2025))[::-1], index=0)
         min_year = show_years
         max_year = show_years
         text_year = show_years
