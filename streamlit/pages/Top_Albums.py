@@ -36,9 +36,9 @@ with st.sidebar:
     else:
         col1, col2 = st.columns(2)
         with col1:
-            min_year = st.selectbox('First Year', range(2010,2025), index=0)
+            min_year = st.selectbox('First Year', range(2000,2025), index=0)
         with col2:
-            max_year = st.selectbox('Last Year', list(range(2010,2025))[::-1], index=0)
+            max_year = st.selectbox('Last Year', list(range(2000,2025))[::-1], index=0)
         text_year = f'{min_year} - {max_year}'
     show_genres = st.multiselect('Genres', st.session_state.all_genres, default=None)
     if len(show_genres) > 0:
