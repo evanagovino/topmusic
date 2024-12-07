@@ -274,7 +274,7 @@ def get_random_track_from_album(album_id: str, weight_by_popularity: bool = True
 
 @app.get("/get_similar_tracks/{track_id}", response_model=schemas.Tracks)
 def get_similar_tracks(track_id: str, 
-                       features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                        unskew_features: bool = True, 
                        restrict_genre: bool = True, 
                        n_tracks: int = 500,
@@ -414,7 +414,7 @@ def get_recommended_tracks(artist_id: str = None,
             raise HTTPException(status_code=404, detail="Artist not found")
         track_id = get_random_track(db_artist)
         return get_total_track_similarity_copy(track_id,
-                                               features = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'], 
+                                               features = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo'], 
                                                unskew_features = True, 
                                                restrict_genre = True, 
                                                n_tracks = 500,
@@ -471,7 +471,7 @@ def get_similar_artists(artist_id: str,
 
 @app.get("/get_similar_genres/{genre}", response_model=schemas.Genres)
 def get_similar_genres(genre: str, 
-                       features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                        unskew_features: bool = True, 
                        db: Session = Depends(get_db)
                        ):
@@ -483,9 +483,24 @@ def get_similar_genres(genre: str,
     x = get_genre_similarities(genre_df, genre)
     return x
 
+@app.get("/get_similar_artists_by_track_details/{artist_id}", response_model=schemas.Artists)
+def get_similar_artists_by_track_details(artist_id: str, 
+                                         features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
+                                         unskew_features: bool = True, 
+                                         db: Session = Depends(get_db)
+                                         ):
+    features = unskew_features_function(features, unskew_features)
+    db_artists = crud.get_artist_track_details(db)
+    artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
+    if artist_id not in artist_df.index:
+        raise HTTPException(status_code=404, detail="Genre not found")
+    x = get_artist_similarities(artist_df, artist_id)
+    return x
+
+
 @app.get('/get_similar_tracks_total/{track_id}', response_model=schemas.Tracks)
 def get_total_track_similarity_new(track_id: str, 
-                                   features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                                   features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                                    unskew_features: bool = True, 
                                    restrict_genre: bool = True, 
                                    n_tracks: int = 500,
@@ -538,6 +553,15 @@ def get_total_track_similarity_new(track_id: str,
     df_artist.columns = ['artist_similarity_score']
     df = df.merge(df_artist, left_on='artist_id', right_index=True)
     print('Got Similar Artists For Track', datetime.datetime.now())
+    # Get Similar Artist Scores For Track
+    db_artists = crud.get_artist_track_details(db)
+    artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
+    if artist_id not in artist_df.index:
+        raise HTTPException(status_code=404, detail="Genre not found")
+    x_artist = get_artist_similarities(artist_df, artist_id)
+    df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
+    df_artist.columns = ['artist_similarity_score_track_details']
+    df = df.merge(df_artist, left_on='artist_id', right_index=True)
     #Get Similar Genres For Track
     if restrict_genre:
         df['genre_similarity_score'] = 0
@@ -553,10 +577,11 @@ def get_total_track_similarity_new(track_id: str,
     print('Got Similar Genres For Track', datetime.datetime.now())
     df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
     df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
-    df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['artist_similarity_score'] * 0.15) + (df['genre_score_n'] * 0.15)
+    df['artist_score_n'] = ((df['artist_similarity_score_track_details'].max() - df['artist_similarity_score_track_details']) / (df['artist_similarity_score_track_details'].max() - df['artist_similarity_score_track_details'].min())).fillna(1)
+    df['weighted_score'] = (df['similarity_score_n'] * 0.1) + (df['artist_score_n'] * 0.45) + (df['genre_score_n'] * 0.45)
     df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
     df = df[df['artist_rank'] <= 5]
-    df['reweighted_score'] = normalize_weights(df['weighted_score'])
+    df['reweighted_score'] = normalize_weights(np.power(df['weighted_score'], 5))
     request_length = min(request_length, len(df))
     song_selections = np.random.choice(df.index, size=request_length, replace=False, p=df['reweighted_score'])
     df = df[df.index.isin(song_selections)]
@@ -808,5 +833,67 @@ def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
                 break
         x['albums'][album] = new_dict
     return x
+
+@app.get('/get_tracks_by_features/', response_model=schemas.Tracks)
+def get_tracks_by_features(
+                        #    included_genres: List[str] = Query([None]),
+                           excluded_genres: List[str] = Query(['']),
+                        #    included_subgenres: List[str] = Query([None]),
+                           excluded_subgenres: List[str] = Query(['']),
+                           excluded_time_signatures: List[int] = Query([0]),
+                           min_danceability: float = 0, 
+                           max_danceability: float = 1, 
+                           min_energy: float = 0, 
+                           max_energy: float = 1, 
+                           min_speechiness: float = 0, 
+                           max_speechiness: float = 1, 
+                           min_acousticness: float = 0, 
+                           max_acousticness: float = 1, 
+                           min_instrumentalness: float = 0, 
+                           max_instrumentalness: float = 1, 
+                           min_liveness: float = 0, 
+                           max_liveness: float = 1, 
+                           min_valence: float = 0, 
+                           max_valence: float = 1, 
+                           min_tempo: float = 50, 
+                           max_tempo: float = 170,
+                           track_limit: int = 50,
+                           db: Session = Depends(get_db)
+                           ):
+    db_tracks = crud.get_tracks_by_features(db, 
+                                            # included_genres=included_genres,
+                                            excluded_genres=excluded_genres,
+                                            # included_subgenres=included_subgenres,
+                                            excluded_subgenres=excluded_subgenres,
+                                            excluded_time_signatures=excluded_time_signatures,
+                                            min_danceability=min_danceability, 
+                                            max_danceability=max_danceability, 
+                                            min_energy=min_energy, 
+                                            max_energy=max_energy, 
+                                            min_speechiness=min_speechiness,
+                                            max_speechiness=max_speechiness,
+                                            min_acousticness=min_acousticness,
+                                            max_acousticness=max_acousticness,
+                                            min_instrumentalness=min_instrumentalness,
+                                            max_instrumentalness=max_instrumentalness,
+                                            min_liveness=min_liveness,
+                                            max_liveness=max_liveness,
+                                            min_valence=min_valence,
+                                            max_valence=max_valence,
+                                            min_tempo=min_tempo,
+                                            max_tempo=max_tempo
+                                            )
+    if db_tracks is None:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    elif len(db_tracks) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    print('Successfully pulled down data')
+    x = {'tracks': {}}
+    track_length = min(len(db_tracks), track_limit)
+    track_selection = np.random.choice(db_tracks, track_length, replace=False)
+    features= ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
+    features = unskew_features_function(features)
+    _, _, tracks = unpack_tracks(track_selection, features)
+    return tracks
     
 

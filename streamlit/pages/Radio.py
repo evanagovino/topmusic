@@ -8,7 +8,8 @@ st.set_page_config('Top Albums', layout="wide")
 
 page_header()
 
-feature_list = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
+#feature_list = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
+feature_list = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']
 
 initiate_genres()
 initiate_artists()
@@ -31,7 +32,7 @@ with st.sidebar:
     with col2:
         st.markdown('[Disconnect](https://topmusic.page)')
     radio_type = st.selectbox('Choose a Radio Type',
-                              ['Genre', 'Artist'],
+                              ['Genre', 'Artist', 'Mood'],
                               key='radio_type',
                               on_change=radio_type_callback)
     if st.session_state.radio_type == 'Genre':
@@ -60,7 +61,7 @@ with st.sidebar:
                                 key='max_year')
         show_years = list(range(min_year, max_year + 1))
         text_year = f'{min_year} - {max_year}'
-    else:
+    elif st.session_state.radio_type == 'Artist':
         artist = st.selectbox('Choose an Artist',
                             st.session_state.all_artists,
                             key='artist_selection',
@@ -97,6 +98,14 @@ with st.sidebar:
         else:
             if 'track_id' not in st.session_state:
                 song_callback()
+    elif st.session_state.radio_type == 'Mood':
+        mood = st.selectbox('Choose a Mood',
+                            ['Chill','Focus', 'Jazzy Focus', 'Electronic Focus'],
+                            key='mood_selection'
+                            )
+        mood_genres = st.multiselect('Genres', st.session_state.all_genres, default=None, key='mood_genre_selection')
+
+
 if 'song_selection' in st.session_state:
     display = st.session_state.song_selection
 elif 'album_selection' in st.session_state:
@@ -107,6 +116,8 @@ elif 'subgenre_selection' in st.session_state:
     display = st.session_state.subgenre_selection
 elif 'genre_selection' in st.session_state:
     display = st.session_state.genre_selection
+elif 'mood_selection' in st.session_state:
+    display = st.session_state.mood_selection
 else:
     display = None
 playback_settings = st.expander('Playback Settings', expanded=False)
@@ -153,6 +164,12 @@ with st.sidebar:
                                                     genre=display, 
                                                     publication='', 
                                                     )
+                        elif radio_type == 'Mood':
+                            spotify_create_playlist(tracks=st.session_state.track_uris,
+                                                    year='', 
+                                                    genre=display, 
+                                                    publication='', 
+                                                    )
     if 'spotify' in st.session_state:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -185,7 +202,7 @@ with display_songs:
         st.write('No songs to display! Perhaps you need to start a radio?')
 
 if display == None:
-    st.subheader('Pick a Genre or Artist to Start Your Radio')
+    st.subheader('Pick a Genre, Artist or Mood to Start Your Radio')
 
 if 'track_info' in st.session_state:
     st.subheader('Recommended Albums')

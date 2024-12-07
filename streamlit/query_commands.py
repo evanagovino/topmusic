@@ -7,7 +7,7 @@ from _utils import *
 
 fastapi_url = 'http://fastapi:8000'
 
-@st.cache_data(ttl=600)
+#@st.cache_data(ttl=600)
 def pull_genre_payload():
     genres_raw = requests.get(f'{fastapi_url}/genres/')
     return genres_raw.json()['genres']
@@ -31,7 +31,7 @@ def initiate_genres():
     if 'all_subgenres' not in st.session_state:
         st.session_state.all_subgenres = pull_unique_subgenres(st.session_state.genres_payload)
 
-@st.cache_data(ttl=600)
+#@st.cache_data(ttl=600)
 def pull_artist_payload():
     artists_raw = requests.get(f'{fastapi_url}/artists/')
     return artists_raw.json()['artists']
@@ -45,7 +45,7 @@ def initiate_artists():
         st.session_state.artists_payload = pull_artist_payload()
         st.session_state.all_artists = pull_unique_artists(st.session_state.artists_payload)
 
-@st.cache_data(ttl=600)
+#@st.cache_data(ttl=600)
 def pull_publication_payload():
     publications_raw = requests.get(f'{fastapi_url}/publications/')
     return publications_raw.json()['publications']
@@ -121,6 +121,7 @@ def retrieve_popular_tracks(artist_id, album_id=None):
 
 #@st.cache_data(ttl=600)
 def get_track_info(track_id, 
+                   features,
                    request_length=50, 
                    restrict_genre=False, 
                    duration_min_minute=True, 
@@ -131,6 +132,78 @@ def get_track_info(track_id,
     else:
         duration_min = 0
     base_url = f'{fastapi_url}/get_similar_tracks_total/{track_id}?restrict_genre={restrict_genre}&request_length={request_length}&duration_min={duration_min}'
+    for feature in features:
+        base_url += f'&features={feature}'
+    df = requests.get(base_url)
+    df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
+    return df
+
+def get_track_info_mood(mood, genres):
+    if mood == 'Focus':
+        base_url = f'{fastapi_url}/get_tracks_by_features/?'
+        base_url += '&min_instrumentalness=0.93'# min_instrumentalness = 0.93
+        base_url += '&min_energy=0.5' #min_energy = 0.5
+        base_url += '&min_danceability=0.65' #min_danceability = 0.65
+        base_url += '&min_valence=0.4' #min_valence = 0.4
+        base_url += '&max_tempo=135' #max_tempo = 0.6
+        excluded_genres = ['Indie Rock', 'Rock', 'Pop']
+        if len(genres) > 0:
+            excluded_genres = [i for i in st.session_state.all_genres if i not in genres]
+        # for genre in excluded_genres:
+        #     base_url += f'&excluded_genres={genre}'
+        excluded_subgenres = ['Country']
+        # for subgenre in excluded_subgenres:
+        #     base_url += f'&excluded_subgenres={subgenre}'
+    elif mood == 'Electronic Focus':
+        base_url = f'{fastapi_url}/get_tracks_by_features/?'
+        base_url += '&min_instrumentalness=0.93'# min_instrumentalness = 0.93
+        base_url += '&min_energy=0.5' #min_energy = 0.5
+        base_url += '&min_danceability=0.6' #min_danceability = 0.65
+        base_url += '&min_valence=0.4' #min_valence = 0.4
+        base_url += '&max_tempo=135' #max_tempo = 0.6
+        base_url += '&min_tempo=115' #max_tempo = 0.6
+        excluded_genres = ['Indie Rock', 'Rock', 'Pop', 'Alternative', 'Classical', 'Country', 'Experimental', 'Metal', 'Pop', 'Rap','R%26B', 'Reggae', 'African', 'Jazz', 'Latin']
+        # for genre in excluded_genres:
+        #     base_url += f'&excluded_genres={genre}'
+        excluded_subgenres = []
+        # for subgenre in excluded_subgenres:
+        #     base_url += f'&excluded_subgenres={subgenre}'
+    elif mood == 'Jazzy Focus':
+        base_url = f'{fastapi_url}/get_tracks_by_features/?'
+        base_url += '&min_instrumentalness=0.8'# min_instrumentalness = 0.9
+        base_url += '&min_energy=0.4' #min_energy = 0.2
+        # base_url += '&max_energy=0.75' #max_energy = 0.75
+        # base_url += '&min_valence=0.45' #min_valence = 0.55
+        base_url += '&min_danceability=0.6' #max_tempo = 0.6
+        base_url += '&max_acousticness=0.9' #max_tempo = 0.6
+        # base_url += '&min_tempo=0.75' #max_tempo = 0.6
+        excluded_genres = ['Alternative', 'Classical', 'Country', 'Electronic', 'Experimental', 'Indie Rock', 'Metal', 'Pop', 'Rap', 'R%26B', 'Rock', 'Reggae']
+        # for genre in excluded_genres:
+        #     base_url += f'&excluded_genres={genre}'
+        excluded_subgenres = ['Afrobeats', 'Gqom', 'Reggaeton', 'Vocal Jazz', 'Dancehall', 'Amapiano', 'African', 'Latin', 'Dembow']
+        # for subgenre in excluded_subgenres:
+        #     base_url += f'&excluded_subgenres={subgenre}'
+        excluded_time_signatures = [1,3,5]
+        for time_signature in excluded_time_signatures:
+            base_url += f'&excluded_time_signatures={time_signature}'
+    elif mood == 'Chill':
+        base_url = f'{fastapi_url}/get_tracks_by_features/?'
+        base_url += '&max_tempo=115'
+        base_url += '&min_tempo=90'
+        base_url += '&min_valence=0.6'
+        excluded_genres = ['Country', 'Metal'] # default excluded genres
+        excluded_subgenres = ['British Rap','Rap']
+        if len(genres) > 0:
+            excluded_genres = [i for i in st.session_state.all_genres if i not in genres]
+    for genre in excluded_genres:
+        if genre == 'R&B':
+            genre = 'R%26B'
+        base_url += f'&excluded_genres={genre}'
+    for subgenre in excluded_subgenres:
+        if subgenre == 'R&B':
+            subgenre = 'R%26B'
+        base_url += f'&excluded_subgenres={subgenre}'
+    print(base_url)
     df = requests.get(base_url)
     df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
     return df
