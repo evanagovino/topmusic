@@ -86,11 +86,19 @@ def pull_unique_albums(albums):
 
 @st.cache_data(ttl=600)
 def retrieve_tracks_payload(artist_id=None, album_id=None, album_ids=None):
+    """
+    Seems like this function is kind of weird and being used in a few place:
+
+    1. On the Top_Albums page when we want to retrieve a list of tracks based on a list of (potentially non-unique) albums
+    2. On the Radio page when we initiate an artist or an album, we use this to pull a list of tracks for that potential artist/album.
+
+    Probably makes sense to break this into two functions, one that is album-based and one that is artist-based.
+
+    """
     if album_ids is not None:
         base_id = f'{fastapi_url}/tracks_for_albums/?'
         for album in album_ids:
             base_id += f'&album_ids={album}'
-        #print(base_id)
         tracks_raw = requests.get(base_id)
     elif album_id is not None:
         base_id = f'{fastapi_url}/tracks_for_album/{album_id}'
@@ -112,6 +120,9 @@ def pull_unique_tracks(tracks):
 
 @st.cache_data(ttl=600)
 def retrieve_popular_tracks(artist_id, album_id=None):
+    """
+    Retrieve a (singular) track from an artist or album, randomly chosen but weighted by popularity.
+    """
     if album_id:
         tracks_raw = requests.get(f'{fastapi_url}/random_track_from_album/{album_id}')
     else:
@@ -126,6 +137,9 @@ def get_track_info(track_id,
                    duration_min_minute=True, 
                    unskew_features=True
                    ):
+    """
+    Function used to fetch 'relevant tracks' for a given track, derived via Artist Radio
+    """
     if duration_min_minute:
         duration_min = 60000
     else:
@@ -143,6 +157,9 @@ def get_relevant_albums(min_year,
                         publication=None, 
                         list=None
                         ):
+    """
+    Function used to fetch 'relevant albums' for a request either via Top Albums or Genre Radio
+    """
     base_api = f'{fastapi_url}/get_relevant_albums/?min_year={min_year}&max_year={max_year}'
     if genre:
         for item in genre:
@@ -178,6 +195,9 @@ def return_tracks(albums,
                   weight_albums=True, 
                   weight_tracks=True
                   ):
+    """
+    Function used to return tracks from a selection of Spotify album URIs. Used after 'get_relevant_albums'.
+    """
     if replace_albums == False:
         request_length = min(track_length, len(df))
     else:
@@ -205,6 +225,13 @@ def return_tracks(albums,
 
 # @st.cache_data
 def get_album_accolades(album_id, n_accolades=10):
+    """
+    Get album accolades for one album using the Spotify ID. 
+    
+    Note this doesn't currently work for albums without an associated ID. Can we use the album ID from the Music list here?
+
+    Do we need both this function and the below function?
+    """
     if 'album_accolades' in st.session_state:
         if st.session_state['album_accolades']:
             if album_id in st.session_state.album_accolades:
@@ -219,6 +246,13 @@ def get_album_accolades(album_id, n_accolades=10):
 
 # @st.cache_data
 def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
+    """
+    Get album accolades for multipls albums using their Spotify IDs. 
+    
+    Note this doesn't currently work for albums without an associated ID. Can we use the album ID from the Music list here?
+
+    Do we need both this function and the above function?
+    """
     base_id = f'{fastapi_url}/get_album_accolades_multiple_albums/?'
     for album in album_ids:
         base_id += f'&album_ids={album}'
@@ -228,9 +262,11 @@ def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
 
 # @st.cache_data
 def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
+    """
+    Function to display a list of albums in a single column on the Top Albums page.
+    """
     unique_albums = list(df['album_id'].unique())
     st.session_state.album_accolades = get_album_accolades_multiple_albums(unique_albums)
-    #print(st.session_state.album_accolades)
     for position in range(list_start, min(list_end, len(df))):
         album_key = df['album_id'][position]
         artist = df['artist'][position]
@@ -264,6 +300,11 @@ def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
 
 # @st.cache_data
 def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
+    """
+    Function to display a list of albums in two columns on the Radio page.
+
+    This is a little janky because it's rolling up the track info to album info and then displaying the albums accordingly.
+    """
     df['count'] = range(len(df))
     st.session_state.album_accolades = get_album_accolades_multiple_albums(list(df['album_id'].unique()))
     df = df.groupby(['album_id', 'artist', 'album_name', 'genre', 'subgenre', 'year', 'image_url', 'album_url'])['count'].min().reset_index().sort_values('count')

@@ -97,6 +97,11 @@ def _get_tracks_for_albums(db, album_ids):
 
 @app.get("/genres/", response_model=schemas.Genres)
 def get_distinct_genres(db: Session = Depends(get_db)):
+    """
+    Returns a dictionary, as this is generally easier to work with for Streamlit.
+
+    May be a cleaner way to just have one function for this, but using both for now.
+    """
     db_genre = crud.get_unique_genres(db)
     x = {'genres': {}}
     for i in db_genre:
@@ -108,6 +113,11 @@ def get_distinct_genres(db: Session = Depends(get_db)):
 
 @app.get("/genres_new/", response_model=schemas.GenresList)
 def get_distinct_genres_new(db: Session = Depends(get_db)):
+    """
+    Returns a list, as this is generally easier to work with for Flutterflow.
+
+    May be a cleaner way to just have one function for this, but using both for now.
+    """
     db_genre = crud.get_unique_genres(db)
     x = {'genres': []}
     for i in db_genre:
@@ -128,6 +138,9 @@ def get_distinct_genres_new(db: Session = Depends(get_db)):
 
 @app.get("/publications/", response_model=schemas.Publications)
 def get_distinct_publications(db: Session = Depends(get_db)):
+    """
+    Returns a dictionary, as this is generally easier to work with for Streamlit.
+    """
     db_genre = crud.get_unique_publications(db)
     x = {'publications': {}}
     for i in db_genre:
@@ -139,6 +152,11 @@ def get_distinct_publications(db: Session = Depends(get_db)):
 
 @app.get("/artists/", response_model=schemas.Artists)
 def get_distinct_artists(db: Session = Depends(get_db)):
+    """
+    Returns a dictionary, as this is generally easier to work with for Streamlit.
+
+    May be a cleaner way to just have one function for this, but using both for now.
+    """
     db_artist = crud.get_artist_name_ids(db)
     x = {'artists': {}}
     for i in db_artist:
@@ -147,6 +165,11 @@ def get_distinct_artists(db: Session = Depends(get_db)):
 
 @app.get("/artists_new/", response_model=schemas.ArtistsList)
 def get_distinct_artists_new(db: Session = Depends(get_db)):
+    """
+    Returns a list, as this is generally easier to work with for Flutterflow.
+
+    May be a cleaner way to just have one function for this, but using both for now.
+    """
     db_artist = crud.get_artist_name_ids(db)
     x = {'artists': []}
     for i in db_artist:
@@ -155,6 +178,9 @@ def get_distinct_artists_new(db: Session = Depends(get_db)):
 
 @app.get("/artist_id_from_artist_name/", response_model=schemas.ArtistsList)
 def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_db)):
+    """
+    I believe this is only being used by Flutterflow, but I kind of hate it lol
+    """
     db_artist = crud.get_artist_id_from_name(db, artist_name=artist_name)
     if db_artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
@@ -165,17 +191,25 @@ def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_d
 
 @app.get("/albums_for_artist/{artist_id}", response_model=schemas.Albums)
 def get_albums_for_artist(artist_id: str, db: Session = Depends(get_db)):
+    """
+    Get a list of albums for an artist to display in a dropdown in Streamlit's Artist Radio
+
+    Can this be returned as a list if the tracks below are returned as a list?
+    """
     db_album = crud.get_albums_for_artist(db, artist_id=artist_id)
     if db_album is None:
         raise HTTPException(status_code=404, detail="Artist not found")
     x = {'albums': {}}
     for position, value in enumerate(db_album):
-        print(position, value, value[0], value[1])
+        #key is the album_id and value is the album_id
         x['albums'][value[0]] = value[1]
     return x
 
 @app.get("/tracks_for_artist/{artist_id}", response_model=schemas.TracksList)
 def get_tracks_for_artist(artist_id: str, db: Session = Depends(get_db)):
+    """
+    Get a list of tracks for an artist to display in a dropdown in Streamlit's Artist Radio
+    """
     db_artist = crud.get_tracks_for_artist(db, artist_id=artist_id)
     if db_artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
@@ -191,6 +225,9 @@ def get_tracks_for_artist(artist_id: str, db: Session = Depends(get_db)):
 
 @app.get("/tracks_for_album/{album_id}", response_model=schemas.TracksList)
 def get_tracks_for_album(album_id: str, db: Session = Depends(get_db)):
+    """
+    Get a list of tracks for an album to display in a dropdown in Streamlit's Artist Radio
+    """
     db_album = crud.get_tracks_for_album(db, album_id=album_id)
     if db_album is None:
         raise HTTPException(status_code=404, detail="Album not found")
@@ -214,6 +251,9 @@ def get_tracks_for_album(album_id: str, db: Session = Depends(get_db)):
 
 @app.get("/tracks_for_albums/", response_model=schemas.TracksList)
 def get_tracks_for_albums(album_ids: List[str] = Query([None]), db: Session = Depends(get_db)):
+    """
+    Candidate for deletion - not seeing that this is used anywhere.
+    """
     db_album = crud.get_tracks_for_albums(db, album_ids=album_ids)
     if db_album is None:
         raise HTTPException(status_code=404, detail="Album not found")
@@ -236,6 +276,9 @@ def get_tracks_for_albums(album_ids: List[str] = Query([None]), db: Session = De
 
 @app.get("/random_track_from_artist/{artist_id}", response_model=schemas.Tracks)
 def get_random_track_from_artist(artist_id: str, weight_by_popularity: bool = True, db: Session = Depends(get_db)):
+    """
+    Get a random track from an artist and choose to weight it by track popularity.
+    """
     db_artist = crud.get_tracks_for_artist(db, artist_id=artist_id)
     if db_artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
@@ -254,6 +297,9 @@ def get_random_track_from_artist(artist_id: str, weight_by_popularity: bool = Tr
 
 @app.get("/random_track_from_album/{album_id}", response_model=schemas.Tracks)
 def get_random_track_from_album(album_id: str, weight_by_popularity: bool = True, db: Session = Depends(get_db)):
+    """
+    Get a random track from an album and choose to weight it by track popularity.
+    """
     db_album = crud.get_tracks_for_album(db, album_id=album_id)
     if db_album is None:
         raise HTTPException(status_code=404, detail="Album not found")
@@ -281,6 +327,9 @@ def get_similar_tracks(track_id: str,
                        duration_min: int = 0,
                        db: Session = Depends(get_db)
                        ):
+    """
+    Candidate for deletion - not sure this one is still being used.
+    """
     features = unskew_features_function(features, unskew_features)
     db_tracks = crud.get_all_tracks(db)
     track_df, feature_clean_list, x = unpack_tracks(db_tracks, features)
@@ -305,6 +354,9 @@ def get_relevant_albums(min_year: int,
                         points_weight: float = 0.5, 
                         db: Session = Depends(get_db)
                         ):
+    """
+    Currently being used by Streamlit for Genre radio or a list of Top Albums.
+    """
     db_albums = crud.get_relevant_albums(db, 
                                          min_year=min_year, 
                                          max_year=max_year, 
@@ -356,31 +408,9 @@ def get_relevant_albums_new(min_year: int,
                             randomize: bool = False,
                             db: Session = Depends(get_db)
                             ):
-    # db_albums = crud.get_relevant_albums(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication, list=list)
-    # if db_albums is None:
-    #     raise HTTPException(status_code=404, detail="No albums that match criteria")
-    # x = {'albums': []}
-    # for position, value in enumerate(db_albums):
-    #     x['albums'].append({'artist': value.artist,
-    #                         'album_id': value.album_uri,
-    #                         'album_url': value.album_url,
-    #                         'image_url': value.image_url,
-    #                         'album': value.album,
-    #                         'genre': value.genre,
-    #                         'subgenre': value.subgenre,
-    #                         'year': value.year,
-    #                         'points': value[8],
-    #                         'total_points': value[8],
-    #                         'points_pct': value[8] / value[9]
-    #                         })
-    # # album_uris = [i for i in x['albums']]
-    # points_position = stats.rankdata([i['points'] for i in x['albums']])
-    # points_pct_position = stats.rankdata([i['points_pct'] for i in x['albums']])
-    # for position, value in enumerate(points_position):
-    #     x['albums'][position]['points_rank'] = float(value)
-    # for position, value in enumerate(points_pct_position):
-    #     x['albums'][position]['points_pct_rank'] = float(value)
-    #     x['albums'][position]['weighted_rank'] = ((x['albums'][position]['points_rank'] * points_weight) + (x['albums'][position]['points_pct_rank'] * (1 - points_weight)))
+    """
+    This should be the updated version being referenced by Flutterflow that returns a list rather than a dictionary.
+    """
     x = _get_relevant_albums(db, 
                              min_year,
                              max_year, 
@@ -406,6 +436,9 @@ def get_recommended_tracks(artist_id: str = None,
                            genre: str = None, 
                            db: Session = Depends(get_db)
                            ):
+    """
+    I believe this is currently being used by Flutterflow as a high-level wrapper for the Radio funcction.
+    """
     if artist_id is None and genre is None:
         raise HTTPException(status_code=404, detail="Artist ID or Genre must be provided")
     if artist_id:
@@ -456,6 +489,9 @@ def get_recommended_tracks(artist_id: str = None,
 def get_similar_artists(artist_id: str, 
                         db: Session = Depends(get_db)
                         ):
+    """
+    Candidate for deletion - not sure this endpoint is being used anywhere. Shold be hardcoded into the DB if it's not already.
+    """
     db_albums = crud.get_similar_artists(db)
     x = {'artists': {}}
     for position, value in enumerate(db_albums):
@@ -475,6 +511,9 @@ def get_similar_genres(genre: str,
                        unskew_features: bool = True, 
                        db: Session = Depends(get_db)
                        ):
+    """
+    Candidate for deletion - not sure this endpoint is being used anywhere. Shold be hardcoded into the DB if it's not already.
+    """
     features = unskew_features_function(features, unskew_features)
     db_genres = crud.get_similar_genres(db)
     genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
@@ -493,6 +532,9 @@ def get_total_track_similarity_new(track_id: str,
                                    duration_min: int = 0,
                                    db: Session = Depends(get_db)
                                    ):
+    """
+    Current process for getting similar tracks in Streamlit for Artist radio. Definitely need to clean up and utilize more sub-functions here.
+    """
     #Get Data For Track
     print('Request Start', datetime.datetime.now())
     db_track_data = crud.get_track_data(db, track_id=track_id)
@@ -574,6 +616,9 @@ def get_total_track_similarity_copy(track_id: str,
                                    duration_min: int = 0,
                                    db: Session = Depends(get_db)
                                    ):
+    """
+    Should turn this into a helper function.
+    """
     #Get Data For Track
     print('Request Start', datetime.datetime.now())
     db_track_data = crud.get_track_data(db, track_id=track_id)
@@ -648,99 +693,12 @@ def get_total_track_similarity_copy(track_id: str,
     print('Finish Job', datetime.datetime.now())
     return final_x
 
-
-
-
-    
-
-
-# @app.get("/get_similar_tracks_total/{track_id}", response_model=schemas.Tracks)
-# def get_total_track_similarity(track_id: str, 
-#                                features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
-#                                unskew_features: bool = True, 
-#                                restrict_genre: bool = True, 
-#                                n_tracks: int = 500,
-#                                request_length: int = 50,
-#                                duration_min: int = 0,
-#                                db: Session = Depends(get_db)
-#                                ):
-#     #Get Data For Track
-#     print('Request Start', datetime.datetime.now())
-#     db_track_data = crud.get_track_data(db, track_id=track_id)
-#     if db_track_data is None:
-#         raise HTTPException(status_code=404, detail="No tracks that match criteria")
-#     x = {}
-#     for position, value in enumerate(db_track_data):
-#         for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
-#             x[feature] = getattr(value, feature)
-#     artist_id = x['artist_id']
-#     genre = x['genre']
-#     #Get Similar Tracks
-#     print('Got Data for Track', datetime.datetime.now())
-#     features = unskew_features_function(features, unskew_features)
-#     db_tracks = crud.get_all_tracks(db)
-#     print('All Tracks Call', datetime.datetime.now())
-#     track_df, feature_clean_list, x = unpack_tracks(db_tracks, features)
-#     print('Unpacked Tracks', datetime.datetime.now())
-#     if track_id not in track_df.index:
-#         raise HTTPException(status_code=404, detail="Track not found")
-#     x_similar = get_track_similarities(track_df, 
-#                                        track_id, 
-#                                        feature_clean_list, 
-#                                        n_tracks,   
-#                                        x, 
-#                                        restrict_genre,
-#                                        duration_min)
-#     df = pd.DataFrame.from_dict(x_similar['tracks'], orient='index')
-#     print('Got Similar Tracks', datetime.datetime.now())
-#     #Get Similar Artists For Track
-#     db_albums = crud.get_similar_artists(db)
-#     x = {'artists': {}}
-#     for position, value in enumerate(db_albums):
-#         x['artists'][value.artist_id] = value.publication_data
-#     artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-#     try:
-#         artist_location = np.where(artist_df.index == artist_id)[0][0]
-#     except:
-#         raise HTTPException(status_code=404, detail="No artists that match criteria")
-#     matrix_values = artist_df.apply(pd.Series)
-#     x_artist = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
-#     df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
-#     df_artist.columns = ['artist_similarity_score']
-#     df = df.merge(df_artist, left_on='artist_id', right_index=True)
-#     print('Got Similar Artists For Track', datetime.datetime.now())
-#     #Get Similar Genres For Track
-#     if restrict_genre:
-#         df['genre_similarity_score'] = 0
-#     else:
-#         db_genres = crud.get_similar_genres(db)
-#         genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
-#         if genre not in genre_df.index:
-#             raise HTTPException(status_code=404, detail="Genre not found")
-#         x_genre = get_genre_similarities(genre_df, genre)
-#         df_genre = pd.DataFrame.from_dict(x_genre['genres'], orient='index')
-#         df_genre.columns = ['genre_similarity_score']
-#         df = df.merge(df_genre, left_on='genre', right_index=True)
-#     print('Got Similar Genres For Track', datetime.datetime.now())
-#     df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
-#     df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
-#     df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['artist_similarity_score'] * 0.15) + (df['genre_score_n'] * 0.15)
-#     df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
-#     df = df[df['artist_rank'] <= 5]
-#     df['reweighted_score'] = normalize_weights(df['weighted_score'])
-#     print(df.shape)
-#     request_length = min(request_length, len(df))
-#     song_selections = np.random.choice(df.index, size=request_length, replace=False, p=df['reweighted_score'])
-#     df = df[df.index.isin(song_selections)]
-#     final_x = {}
-#     final_x['tracks'] = json.loads(df.to_json(orient='index'))
-#     print('Finish Job', datetime.datetime.now())
-#     return final_x
-
-
 @app.get('/get_track_data/{track_id}', response_model=schemas.TrackDetails)
 def get_track_data(track_id: str, 
                    db: Session = Depends(get_db)):
+    """
+    I don't see where this one is being used in Streamlit.
+    """
     db_tracks = crud.get_track_data(db, track_id=track_id)
     if db_tracks is None:
         raise HTTPException(status_code=404, detail="No tracks that match criteria")
@@ -754,6 +712,9 @@ def get_track_data(track_id: str,
 def get_album_accolades(album_id: str, 
                         n_accolades: int = 10, 
                         db: Session = Depends(get_db)):
+    """
+    Do we need both this and the below function?
+    """
     db_albums = crud.get_album_accolades(db, album_id=album_id)
     # print(len(db_albums))
     if db_albums is None:
@@ -781,6 +742,9 @@ def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
                                         n_accolades: int = 10,
                                         album_limit: int = 50,
                                         db: Session = Depends(get_db)):
+    """
+    Do we need both this and the below function?
+    """
     db_albums = crud.get_album_accolades_multiple_albums(db, album_ids=album_ids[:album_limit])
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
