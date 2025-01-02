@@ -62,7 +62,7 @@ def unpack_genres(db_genres, features):
     genre_df = pd.DataFrame.from_dict(x['genres'], orient='index')
     return genre_df, feature_clean_list, x
 
-def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, restrict_genre=False, duration_min=0):
+def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, restrict_genre=False, min_duration=60000):
     results = track_df[track_df.index == track_id][feature_clean_list].values.reshape(1, len(feature_clean_list))
     track_genre = track_df[track_df.index == track_id]['genre'].values[0]
     if restrict_genre:

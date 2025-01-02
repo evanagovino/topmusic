@@ -18,11 +18,11 @@ def get_albums_for_artist(db: Session, artist_id: str):
 def get_artist_id_from_name(db: Session, artist_name: str):
     return db.query(models.TrackFeatures.artist, models.TrackFeatures.artist_id).filter(models.TrackFeatures.artist == artist_name).distinct().all()
 
-def get_all_tracks(db: Session):
-    return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration.isnot(None)).all()
+def get_all_tracks(db: Session, min_duration: int):
+    return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration >= min_duration).all()
 
-def get_all_tracks_genre(db: Session, genre: str):
-    return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration.isnot(None)).filter(models.TrackFeatures.genre == genre).all()
+def get_all_tracks_genre(db: Session, genre: str, min_duration: int):
+    return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration >= min_duration).filter(models.TrackFeatures.genre == genre).all()
 
 def get_tracks_for_artist(db: Session, artist_id: str):
     return db.query(models.TrackFeatures.album_id, models.TrackFeatures.track_name, models.TrackFeatures.track_id, models.TrackFeatures.track_popularity, models.TrackFeatures.artist_id).filter(models.TrackFeatures.artist_id == artist_id).distinct(models.TrackFeatures.album_id, models.TrackFeatures.track_name, models.TrackFeatures.track_id, models.TrackFeatures.track_popularity).all()
@@ -33,8 +33,8 @@ def get_tracks_for_album(db: Session, album_id: str):
 def get_tracks_for_albums(db: Session, album_ids: list):
     return db.query(models.TrackFeatures.album_id, models.TrackFeatures.track_name, models.TrackFeatures.track_id, models.TrackFeatures.track_popularity, models.TrackFeatures.artist, models.TrackFeatures.album_name, models.TrackFeatures.genre, models.TrackFeatures.subgenre, models.TrackFeatures.year, models.TrackFeatures.image_url, models.TrackFeatures.album_url).filter(models.TrackFeatures.album_id.in_(album_ids)).distinct().all()
 
-def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenres: list, excluded_time_signatures: list, min_danceability: float, max_danceability: float, min_energy: float, max_energy: float, min_speechiness: float, max_speechiness: float, min_acousticness: float, max_acousticness: float, min_instrumentalness: float, max_instrumentalness: float, min_liveness: float, max_liveness: float, min_valence: float, max_valence: float, min_tempo: float, max_tempo: float):
-    base_query = db.query(models.TrackFeatures).filter(models.TrackFeatures.danceability_clean >= min_danceability, models.TrackFeatures.danceability_clean <= max_danceability, models.TrackFeatures.energy_clean >= min_energy, models.TrackFeatures.energy_clean <= max_energy, models.TrackFeatures.speechiness_clean >= min_speechiness, models.TrackFeatures.speechiness_clean <= max_speechiness, models.TrackFeatures.acousticness_clean >= min_acousticness, models.TrackFeatures.acousticness_clean <= max_acousticness, models.TrackFeatures.instrumentalness_clean >= min_instrumentalness, models.TrackFeatures.instrumentalness_clean <= max_instrumentalness, models.TrackFeatures.liveness_clean >= min_liveness, models.TrackFeatures.liveness_clean <= max_liveness, models.TrackFeatures.valence_clean >= min_valence, models.TrackFeatures.valence_clean <= max_valence, models.TrackFeatures.valence_clean >= min_valence, models.TrackFeatures.tempo_mapped >= min_tempo, models.TrackFeatures.tempo_mapped <= max_tempo)
+def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenres: list, excluded_time_signatures: list, min_danceability: float, max_danceability: float, min_energy: float, max_energy: float, min_speechiness: float, max_speechiness: float, min_acousticness: float, max_acousticness: float, min_instrumentalness: float, max_instrumentalness: float, min_liveness: float, max_liveness: float, min_valence: float, max_valence: float, min_tempo: float, max_tempo: float, min_duration: float):
+    base_query = db.query(models.TrackFeatures).filter(models.TrackFeatures.danceability_clean >= min_danceability, models.TrackFeatures.danceability_clean <= max_danceability, models.TrackFeatures.energy_clean >= min_energy, models.TrackFeatures.energy_clean <= max_energy, models.TrackFeatures.speechiness_clean >= min_speechiness, models.TrackFeatures.speechiness_clean <= max_speechiness, models.TrackFeatures.acousticness_clean >= min_acousticness, models.TrackFeatures.acousticness_clean <= max_acousticness, models.TrackFeatures.instrumentalness_clean >= min_instrumentalness, models.TrackFeatures.instrumentalness_clean <= max_instrumentalness, models.TrackFeatures.liveness_clean >= min_liveness, models.TrackFeatures.liveness_clean <= max_liveness, models.TrackFeatures.valence_clean >= min_valence, models.TrackFeatures.valence_clean <= max_valence, models.TrackFeatures.valence_clean >= min_valence, models.TrackFeatures.tempo_mapped >= min_tempo, models.TrackFeatures.tempo_mapped <= max_tempo, models.TrackFeatures.tempo_mapped <= max_tempo, models.TrackFeatures.duration >= min_duration)
     if len(excluded_genres[0]) > 0:
         base_query = base_query.filter(~models.TrackFeatures.genre.in_(excluded_genres))
     if len(excluded_subgenres[0]) > 0:

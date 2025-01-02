@@ -278,11 +278,11 @@ def get_similar_tracks(track_id: str,
                        unskew_features: bool = True, 
                        restrict_genre: bool = True, 
                        n_tracks: int = 500,
-                       duration_min: int = 0,
+                       min_duration: int = 60000,
                        db: Session = Depends(get_db)
                        ):
     features = unskew_features_function(features, unskew_features)
-    db_tracks = crud.get_all_tracks(db)
+    db_tracks = crud.get_all_tracks(db, min_duration=min_duration)
     track_df, feature_clean_list, x = unpack_tracks(db_tracks, features)
     if track_id not in track_df.index:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -292,7 +292,7 @@ def get_similar_tracks(track_id: str,
                                        n_tracks,   
                                        x, 
                                        restrict_genre,
-                                       duration_min)
+                                       min_duration)
     return x_similar
 
 @app.get("/get_relevant_albums/", response_model=schemas.Albums)
@@ -419,7 +419,7 @@ def get_recommended_tracks(artist_id: str = None,
                                                restrict_genre = True, 
                                                n_tracks = 500,
                                                request_length = 50,
-                                               duration_min = 0,
+                                               min_duration = 60000,
                                                db = db
                                                )
     elif genre:
@@ -490,7 +490,7 @@ def get_total_track_similarity_new(track_id: str,
                                    restrict_genre: bool = True, 
                                    n_tracks: int = 500,
                                    request_length: int = 50,
-                                   duration_min: int = 0,
+                                   min_duration: int = 60000,
                                    db: Session = Depends(get_db)
                                    ):
     #Get Data For Track
@@ -504,9 +504,9 @@ def get_total_track_similarity_new(track_id: str,
     print('Got Data for Track', datetime.datetime.now())
     features = unskew_features_function(features, unskew_features)
     if restrict_genre:
-        db_tracks = crud.get_all_tracks_genre(db, genre=genre)
+        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration)
     else:
-        db_tracks = crud.get_all_tracks(db)
+        db_tracks = crud.get_all_tracks(db, min_duration=min_duration)
     print('All Tracks Call', datetime.datetime.now())
     feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
     print('Unpacked Tracks', datetime.datetime.now())
@@ -571,7 +571,7 @@ def get_total_track_similarity_copy(track_id: str,
                                    restrict_genre: bool = True, 
                                    n_tracks: int = 500,
                                    request_length: int = 50,
-                                   duration_min: int = 0,
+                                   min_duration: int = 60000,
                                    db: Session = Depends(get_db)
                                    ):
     #Get Data For Track
@@ -585,9 +585,9 @@ def get_total_track_similarity_copy(track_id: str,
     print('Got Data for Track', datetime.datetime.now())
     features = unskew_features_function(features, unskew_features)
     if restrict_genre:
-        db_tracks = crud.get_all_tracks_genre(db, genre=genre)
+        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration)
     else:
-        db_tracks = crud.get_all_tracks(db)
+        db_tracks = crud.get_all_tracks(db, min_duration=min_duration)
     print('All Tracks Call', datetime.datetime.now())
     feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
     print('Unpacked Tracks', datetime.datetime.now())
@@ -833,6 +833,7 @@ def get_tracks_by_features(
                            min_tempo: float = 50, 
                            max_tempo: float = 170,
                            track_limit: int = 50,
+                           min_duration: int = 60000,
                            db: Session = Depends(get_db)
                            ):
     db_tracks = crud.get_tracks_by_features(db, 
@@ -854,7 +855,8 @@ def get_tracks_by_features(
                                             min_valence=min_valence,
                                             max_valence=max_valence,
                                             min_tempo=min_tempo,
-                                            max_tempo=max_tempo
+                                            max_tempo=max_tempo,
+                                            min_duration=min_duration
                                             )
     if db_tracks is None:
         raise HTTPException(status_code=404, detail="No tracks that match criteria")
