@@ -808,5 +808,65 @@ def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
                 break
         x['albums'][album] = new_dict
     return x
+
+@app.get('/get_tracks_by_features/', response_model=schemas.Tracks)
+def get_tracks_by_features(
+                        #    included_genres: List[str] = Query([None]),
+                           excluded_genres: List[str] = Query(['']),
+                        #    included_subgenres: List[str] = Query([None]),
+                           excluded_subgenres: List[str] = Query(['']),
+                           excluded_time_signatures: List[int] = Query([0]),
+                           min_danceability: float = 0, 
+                           max_danceability: float = 1, 
+                           min_energy: float = 0, 
+                           max_energy: float = 1, 
+                           min_speechiness: float = 0, 
+                           max_speechiness: float = 1, 
+                           min_acousticness: float = 0, 
+                           max_acousticness: float = 1, 
+                           min_instrumentalness: float = 0, 
+                           max_instrumentalness: float = 1, 
+                           min_liveness: float = 0, 
+                           max_liveness: float = 1, 
+                           min_valence: float = 0, 
+                           max_valence: float = 1, 
+                           min_tempo: float = 50, 
+                           max_tempo: float = 170,
+                           track_limit: int = 50,
+                           db: Session = Depends(get_db)
+                           ):
+    db_tracks = crud.get_tracks_by_features(db, 
+                                            excluded_genres=excluded_genres,
+                                            excluded_subgenres=excluded_subgenres,
+                                            excluded_time_signatures=excluded_time_signatures,
+                                            min_danceability=min_danceability, 
+                                            max_danceability=max_danceability, 
+                                            min_energy=min_energy, 
+                                            max_energy=max_energy, 
+                                            min_speechiness=min_speechiness,
+                                            max_speechiness=max_speechiness,
+                                            min_acousticness=min_acousticness,
+                                            max_acousticness=max_acousticness,
+                                            min_instrumentalness=min_instrumentalness,
+                                            max_instrumentalness=max_instrumentalness,
+                                            min_liveness=min_liveness,
+                                            max_liveness=max_liveness,
+                                            min_valence=min_valence,
+                                            max_valence=max_valence,
+                                            min_tempo=min_tempo,
+                                            max_tempo=max_tempo
+                                            )
+    if db_tracks is None:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    elif len(db_tracks) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    print('Successfully pulled down data')
+    x = {'tracks': {}}
+    track_length = min(len(db_tracks), track_limit)
+    track_selection = np.random.choice(db_tracks, track_length, replace=False)
+    features= ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
+    features = unskew_features_function(features)
+    _, _, tracks = unpack_tracks(track_selection, features)
+    return tracks
     
 
