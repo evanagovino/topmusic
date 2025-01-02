@@ -50,6 +50,7 @@ class TrackFeatures(Base):
     liveness_raw = Column(Float)
     valence_raw = Column(Float)
     tempo_raw = Column(Float)
+    time_signature_raw = Column(Float)
     danceability_clean = Column(Float)
     energy_clean = Column(Float)
     speechiness_clean = Column(Float)
@@ -58,6 +59,8 @@ class TrackFeatures(Base):
     liveness_clean = Column(Float)
     valence_clean = Column(Float)
     tempo_clean = Column(Float)
+    time_signature_raw = Column(Float)
+    tempo_mapped = Column(Float)
 
 class RelevantAlbums(Base):
     __tablename__ = "music_lists"

@@ -9,8 +9,12 @@ def radio_type_callback():
         for values in ['artist_id', 'artist_selection']:
             if values in st.session_state:
                 del st.session_state[values]
-    else:
+    elif st.session_state.radio_type == 'Artist':
         for values in ['genre_selection', 'subgenre_selection']:
+            if values in st.session_state:
+                del st.session_state[values]
+    elif st.session_state.radio_type == 'Mood':
+        for values in ['mood_selection']:
             if values in st.session_state:
                 del st.session_state[values]
 
@@ -82,5 +86,7 @@ def radio_callback():
                                                   genre = show_genres,
                                                   subgenre = show_subgenres)
             st.session_state.track_info = return_tracks(relevant_albums)
+    elif st.session_state.radio_type == 'Mood':
+        st.session_state.track_info = get_track_info_mood(mood=st.session_state.mood_selection, genres=st.session_state.mood_genre_selection)
         
         
