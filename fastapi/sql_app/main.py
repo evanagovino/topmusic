@@ -274,7 +274,7 @@ def get_random_track_from_album(album_id: str, weight_by_popularity: bool = True
 
 @app.get("/get_similar_tracks/{track_id}", response_model=schemas.Tracks)
 def get_similar_tracks(track_id: str, 
-                       features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                        unskew_features: bool = True, 
                        restrict_genre: bool = True, 
                        n_tracks: int = 500,
@@ -414,7 +414,7 @@ def get_recommended_tracks(artist_id: str = None,
             raise HTTPException(status_code=404, detail="Artist not found")
         track_id = get_random_track(db_artist)
         return get_total_track_similarity_copy(track_id,
-                                               features = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'], 
+                                               features = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo'], 
                                                unskew_features = True, 
                                                restrict_genre = True, 
                                                n_tracks = 500,
@@ -471,7 +471,7 @@ def get_similar_artists(artist_id: str,
 
 @app.get("/get_similar_genres/{genre}", response_model=schemas.Genres)
 def get_similar_genres(genre: str, 
-                       features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                        unskew_features: bool = True, 
                        db: Session = Depends(get_db)
                        ):
@@ -485,7 +485,7 @@ def get_similar_genres(genre: str,
 
 @app.get('/get_similar_tracks_total/{track_id}', response_model=schemas.Tracks)
 def get_total_track_similarity_new(track_id: str, 
-                                   features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                                   features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                                    unskew_features: bool = True, 
                                    restrict_genre: bool = True, 
                                    n_tracks: int = 500,
@@ -566,7 +566,7 @@ def get_total_track_similarity_new(track_id: str,
     return final_x
 
 def get_total_track_similarity_copy(track_id: str, 
-                                   features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                                   features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                                    unskew_features: bool = True, 
                                    restrict_genre: bool = True, 
                                    n_tracks: int = 500,
@@ -656,7 +656,7 @@ def get_total_track_similarity_copy(track_id: str,
 
 # @app.get("/get_similar_tracks_total/{track_id}", response_model=schemas.Tracks)
 # def get_total_track_similarity(track_id: str, 
-#                                features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+#                                features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
 #                                unskew_features: bool = True, 
 #                                restrict_genre: bool = True, 
 #                                n_tracks: int = 500,
