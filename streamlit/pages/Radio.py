@@ -8,10 +8,6 @@ st.set_page_config('Top Albums', layout="wide")
 
 page_header()
 
-<<<<<<< HEAD
-#feature_list = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
-=======
->>>>>>> master
 feature_list = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']
 
 initiate_genres()
