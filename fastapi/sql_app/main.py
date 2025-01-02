@@ -591,7 +591,7 @@ def get_total_track_similarity_new(track_id: str,
     return final_x
 
 def get_total_track_similarity_copy(track_id: str, 
-                                   features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+                                   features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
                                    unskew_features: bool = True, 
                                    restrict_genre: bool = True, 
                                    n_tracks: int = 500,
@@ -681,7 +681,7 @@ def get_total_track_similarity_copy(track_id: str,
 
 # @app.get("/get_similar_tracks_total/{track_id}", response_model=schemas.Tracks)
 # def get_total_track_similarity(track_id: str, 
-#                                features: List[str] = Query(['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']), 
+#                                features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
 #                                unskew_features: bool = True, 
 #                                restrict_genre: bool = True, 
 #                                n_tracks: int = 500,
