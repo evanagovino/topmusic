@@ -43,14 +43,16 @@ def add_musical_features_to_base_url(mood_object, base_url):
     return base_url
 
 def add_genres_to_remove(mood_object, base_url):
-    for genre in mood_object.excluded_genres:
-        if genre == 'R&B':
-            genre = 'R%26B'
-        base_url += f'&excluded_genres={genre}'
-    for subgenre in mood_object.excluded_subgenres:
-        if subgenre == 'R&B':
-            subgenre = 'R%26B'
-        base_url += f'&excluded_subgenres={subgenre}'
+    if mood_object.excluded_genres:
+        for genre in mood_object.excluded_genres:
+            if genre == 'R&B':
+                genre = 'R%26B'
+            base_url += f'&excluded_genres={genre}'
+    if mood_object.excluded_subgenres:
+        for subgenre in mood_object.excluded_subgenres:
+            if subgenre == 'R&B':
+                subgenre = 'R%26B'
+            base_url += f'&excluded_subgenres={subgenre}'
     return base_url
 
 mood_dictionary = {
@@ -69,5 +71,12 @@ mood_dictionary = {
     max_tempo = 115,
     default_excluded_genres = ['Country', 'Metal'],
     default_excluded_subgenres = ['Rap', 'British Rap']
+),
+    'Soundscape': MoodSettings(
+    min_instrumentalness = 0.9,
+    max_danceability = 0.3,
+    max_energy = 0.3,
+    max_valence = 0.1,
+    default_excluded_genres = ['Classical', 'Metal', 'Indie Rock']
 )
 }
