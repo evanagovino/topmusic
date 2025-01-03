@@ -99,7 +99,7 @@ with st.sidebar:
                 song_callback()
     elif st.session_state.radio_type == 'Mood':
         mood = st.selectbox('Choose a Mood',
-                            ['Chill','Focus'],
+                            ['Chill','Focus', 'Soundscape'],
                             key='mood_selection'
                             )
         mood_genres = st.multiselect('Genres', st.session_state.all_genres, key='mood_genre_selection')
