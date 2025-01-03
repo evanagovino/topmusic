@@ -280,10 +280,11 @@ def get_similar_tracks(track_id: str,
                        restrict_genre: bool = True, 
                        n_tracks: int = 500,
                        min_duration: int = 60000,
+                       max_duration: int = 600000,
                        db: Session = Depends(get_db)
                        ):
     features = unskew_features_function(features, unskew_features)
-    db_tracks = crud.get_all_tracks(db, min_duration=min_duration)
+    db_tracks = crud.get_all_tracks(db, min_duration=min_duration, max_duration=max_duration)
     track_df, feature_clean_list, x = unpack_tracks(db_tracks, features)
     if track_id not in track_df.index:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -293,7 +294,8 @@ def get_similar_tracks(track_id: str,
                                        n_tracks,   
                                        x, 
                                        restrict_genre,
-                                       min_duration)
+                                       min_duration,
+                                       max_duration)
     return x_similar
 
 @app.get("/get_relevant_albums/", response_model=schemas.Albums)
@@ -304,7 +306,6 @@ def get_relevant_albums(min_year: int,
                         publication: List[str] =Query([None]), 
                         list: List[str] = Query([None]), 
                         points_weight: float = 0.5,
-                        album_limit: int = 500,
                         db: Session = Depends(get_db)
                         ):
     db_albums = crud.get_relevant_albums(db, 
@@ -344,8 +345,7 @@ def get_relevant_albums(min_year: int,
     #     x['albums'][album_uris[position]]['points_pct_rank'] = float(value)
     #     x['albums'][album_uris[position]]['weighted_rank'] = ((x['albums'][album_uris[position]]['points_rank'] * points_weight) + (x['albums'][album_uris[position]]['points_pct_rank'] * (1 - points_weight)))
     new_dict = {}
-    array_size = min(len(x['albums']), album_limit)
-    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True)[:array_size]:
+    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
         new_dict[value[0]] = value[1]
     x['albums'] = new_dict
     return x
@@ -425,6 +425,7 @@ def get_recommended_tracks(artist_id: str = None,
                                                n_tracks = 500,
                                                request_length = 50,
                                                min_duration = 60000,
+                                               max_duration = 600000
                                                db = db
                                                )
     elif genre:
@@ -496,6 +497,7 @@ def get_total_track_similarity_new(track_id: str,
                                    n_tracks: int = 500,
                                    request_length: int = 50,
                                    min_duration: int = 60000,
+                                   max_duration: int = 600000,
                                    db: Session = Depends(get_db)
                                    ):
     #Get Data For Track
@@ -509,9 +511,9 @@ def get_total_track_similarity_new(track_id: str,
     print('Got Data for Track', datetime.datetime.now())
     features = unskew_features_function(features, unskew_features)
     if restrict_genre:
-        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration)
+        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration, max_duration=max_duration)
     else:
-        db_tracks = crud.get_all_tracks(db, min_duration=min_duration)
+        db_tracks = crud.get_all_tracks(db, min_duration=min_duration, max_duration=max_duration)
     print('All Tracks Call', datetime.datetime.now())
     feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
     print('Unpacked Tracks', datetime.datetime.now())
@@ -577,6 +579,7 @@ def get_total_track_similarity_copy(track_id: str,
                                    n_tracks: int = 500,
                                    request_length: int = 50,
                                    min_duration: int = 60000,
+                                   max_duration: int = 600000,
                                    db: Session = Depends(get_db)
                                    ):
     #Get Data For Track
@@ -590,9 +593,9 @@ def get_total_track_similarity_copy(track_id: str,
     print('Got Data for Track', datetime.datetime.now())
     features = unskew_features_function(features, unskew_features)
     if restrict_genre:
-        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration)
+        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration, max_duration=max_duration)
     else:
-        db_tracks = crud.get_all_tracks(db, min_duration=min_duration)
+        db_tracks = crud.get_all_tracks(db, min_duration=min_duration, max_duration=max_duration)
     print('All Tracks Call', datetime.datetime.now())
     feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
     print('Unpacked Tracks', datetime.datetime.now())
@@ -839,6 +842,7 @@ def get_tracks_by_features(
                            max_tempo: float = 170,
                            track_limit: int = 50,
                            min_duration: int = 60000,
+                           max_duration: int = 600000,
                            db: Session = Depends(get_db)
                            ):
     db_tracks = crud.get_tracks_by_features(db, 
@@ -861,7 +865,8 @@ def get_tracks_by_features(
                                             max_valence=max_valence,
                                             min_tempo=min_tempo,
                                             max_tempo=max_tempo,
-                                            min_duration=min_duration
+                                            min_duration=min_duration,
+                                            max_duration=max_duration
                                             )
     if db_tracks is None:
         raise HTTPException(status_code=404, detail="No tracks that match criteria")

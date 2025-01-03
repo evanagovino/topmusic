@@ -192,7 +192,7 @@ def return_tracks(albums,
                   ):
     # Reweight Ranks
     albums = albums[:album_limit]
-    albums['weighted_rank_pct'] = reweight_list(albums['weighted_rank'], top_multiplier=3)
+    albums['weighted_rank_pct'] = reweight_list(albums['weighted_rank'])
     if replace_albums == False:
         request_length = min(track_length, len(df))
         album_choice = np.random.choice(albums['album_id'], 

@@ -8,7 +8,7 @@ def normalize_weights(weights):
     else:
         return [1/len(weights) for i in weights]
     
-def reweight_list(weights, top_multiplier=5):
+def reweight_list(weights, top_multiplier=3):
     result = [(i - np.min(weights)) / (np.max(weights) - np.min(weights)) * ((np.min(weights) * top_multiplier) - np.min(weights)) + np.min(weights) for i in weights]
     return normalize_weights(result)
     
