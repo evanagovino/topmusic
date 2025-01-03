@@ -425,7 +425,7 @@ def get_recommended_tracks(artist_id: str = None,
                                                n_tracks = 500,
                                                request_length = 50,
                                                min_duration = 60000,
-                                               max_duration = 600000
+                                               max_duration = 600000,
                                                db = db
                                                )
     elif genre:
