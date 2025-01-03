@@ -69,6 +69,7 @@ def radio_callback(album_limit=100):
                                                                 album_id=album_id)
         st.write(st.session_state.track_id)
         st.session_state.track_info = get_track_info(track_id=st.session_state.track_id,
+                                                     features=st.session_state.model_features,
                                                      restrict_genre = st.session_state.restrict_genre)
     elif st.session_state.radio_type == 'Genre':
         if 'genre_selection' in st.session_state:

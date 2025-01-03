@@ -69,5 +69,8 @@ def get_similar_artists(db: Session):
 def get_similar_genres(db: Session):
     return db.query(models.GenreFeatures).all()
 
+def get_artist_track_details(db: Session):
+    return db.query(models.ArtistFeatures).all()
+
 def get_track_data(db: Session, track_id: str):
     return db.query(models.TrackFeatures).filter(models.TrackFeatures.track_id == track_id).all()

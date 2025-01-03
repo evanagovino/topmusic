@@ -18,7 +18,7 @@ def unskew_features_function(features, unskew_features=True):
 
 def unpack_tracks(db_tracks, features):
     x = {'tracks': {}}
-    print(type(db_tracks))
+    # print(type(db_tracks))
     for position, value in enumerate(db_tracks):
         feature_clean_list = []
         x['tracks'][value.track_id] = {}
@@ -111,6 +111,17 @@ def get_genre_similarities(genre_df, genre):
     x = {'genres': {}}
     for position, value in enumerate(genre_results):
         x['genres'][value] = float(distance_results[position])
+    return x
+
+def get_artist_similarities(artist_df, artist_id):
+    matrix_values = artist_df.apply(pd.Series)
+    artist_location = np.where(artist_df.index == artist_id)[0][0]
+    distances = pairwise.euclidean_distances(matrix_values)
+    distance_results = np.sort(distances[artist_location])[::-1]
+    artist_results = artist_df.index[np.argsort(distances[artist_location])][::-1]
+    x = {'artists': {}}
+    for position, value in enumerate(artist_results):
+        x['artists'][value] = float(distance_results[position])
     return x
 
 def get_random_track(db, weight_by_popularity = True):
