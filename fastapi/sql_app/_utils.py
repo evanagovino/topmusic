@@ -62,19 +62,7 @@ def unpack_genres(db_genres, features):
     genre_df = pd.DataFrame.from_dict(x['genres'], orient='index')
     return genre_df, feature_clean_list, x
 
-def unpack_artists(db_artists, features):
-    x = {'artists': {}}
-    for position, value in enumerate(db_artists):
-        feature_clean_list = []
-        x['artists'][value.artist_id] = {}
-        for feature in features:
-            feature_clean = feature.split('_')[0]
-            feature_clean_list.append(feature_clean)
-            x['artists'][value.artist_id][feature_clean] = getattr(value, feature)
-    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-    return artist_df, feature_clean_list, x
-
-def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, restrict_genre=False, duration_min=0):
+def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, restrict_genre=False, min_duration=60000):
     results = track_df[track_df.index == track_id][feature_clean_list].values.reshape(1, len(feature_clean_list))
     track_genre = track_df[track_df.index == track_id]['genre'].values[0]
     if restrict_genre:

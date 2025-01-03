@@ -81,7 +81,11 @@ class TrackFeatures(Base):
     liveness_clean = Column(Float)
     valence_clean = Column(Float)
     tempo_clean = Column(Float)
+<<<<<<< HEAD
     time_signature_clean = Column(Float)
+=======
+    time_signature_raw = Column(Float)
+>>>>>>> master
     tempo_mapped = Column(Float)
 
 class RelevantAlbums(Base):
