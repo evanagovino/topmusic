@@ -130,43 +130,45 @@ with playback_settings:
     duration_min_minute = st.checkbox('Only return songs longer than 1 Minute', value=True, key='duration_min_minute')
 with st.sidebar:
     if display:
+        with st.expander('Playback Settings', expanded=False):
+            album_limit = st.selectbox('Album Limit?', [50,100,250,500], index=1, help='Number of albums to include in pool for potential playlist')
         generate = st.button(f'Generate {display} Radio', 
                              help="Generate a radio based on above parameters"
                              )
         if generate:
             st.session_state.generate = True
-            radio_callback()
+            radio_callback(album_limit=album_limit)
             st.session_state.track_uris = ['spotify:track:' + i for i in list(st.session_state.track_info.index)]
             if 'playlist_id' in st.session_state:
                 del st.session_state['playlist_id']
         if st.session_state.generate:
             if 'spotify' in st.session_state:
-                    play_songs = st.button('Play songs via Spotify', 
-                                        help="Play songs based on above parameters",
-                                        )
-                    create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
-                    if play_songs:
-                        spotipy_start_playback(uris=st.session_state.track_uris)
-                        st.session_state.playlist_id = None
-                    elif create_playlist:
-                        if radio_type == 'Genre':
-                            spotify_create_playlist(tracks=st.session_state.track_uris,
-                                                    year=text_year, 
-                                                    genre=display, 
-                                                    publication='', 
-                                                    )
-                        elif radio_type == 'Artist':
-                            spotify_create_playlist(tracks=st.session_state.track_uris,
-                                                    year='', 
-                                                    genre=display, 
-                                                    publication='', 
-                                                    )
-                        elif radio_type == 'Mood':
-                            spotify_create_playlist(tracks=st.session_state.track_uris,
-                                                    year='', 
-                                                    genre=display, 
-                                                    publication='', 
-                                                    )
+                play_songs = st.button('Play songs via Spotify', 
+                                    help="Play songs based on above parameters",
+                                    )
+                create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
+                if play_songs:
+                    spotipy_start_playback(uris=st.session_state.track_uris)
+                    st.session_state.playlist_id = None
+                elif create_playlist:
+                    if radio_type == 'Genre':
+                        spotify_create_playlist(tracks=st.session_state.track_uris,
+                                                year=text_year, 
+                                                genre=display, 
+                                                publication='', 
+                                                )
+                    elif radio_type == 'Artist':
+                        spotify_create_playlist(tracks=st.session_state.track_uris,
+                                                year='', 
+                                                genre=display, 
+                                                publication='', 
+                                                )
+                    elif radio_type == 'Mood':
+                        spotify_create_playlist(tracks=st.session_state.track_uris,
+                                                year='', 
+                                                genre=display, 
+                                                publication='', 
+                                                )
     if 'spotify' in st.session_state:
         col1, col2, col3 = st.columns(3)
         with col1:
