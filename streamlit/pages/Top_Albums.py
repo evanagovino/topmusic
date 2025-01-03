@@ -66,6 +66,7 @@ with st.sidebar:
             weight_albums = st.radio('Weight Albums?', [True, False], help='Higher-ranked albums are more likely to be played')
             weight_tracks = st.radio('Weight Tracks?', [True, False], index=1, help='More popular songs are more likely to be played')
             repeat_albums = st.radio('Repeat Albums?', [True, False], help='Albums are more likely to be repeated')
+            album_limit = st.selectbox('Album Limit?', [50,100,250,500], index=1, help='Number of albums to include in pool for potential playlist')
         play_songs = st.button('Play songs via Spotify', help="Play songs based on above parameters")
         create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
         col1, col2, col3 = st.columns(3)
@@ -83,7 +84,8 @@ with st.sidebar:
                                         random_order=random_order,
                                         replace_albums=repeat_albums, 
                                         weight_albums=weight_albums, 
-                                        weight_tracks=weight_tracks)
+                                        weight_tracks=weight_tracks,
+                                        album_limit=album_limit)
             text_genre = get_genre_for_playlist(show_genres, show_subgenres)
             text_publication = get_publication_for_playlist(show_publications)
             spotify_create_playlist(tracks=tracks,
@@ -96,7 +98,8 @@ with st.sidebar:
                                                         random_order=random_order, 
                                                         replace_albums=repeat_albums, 
                                                         weight_albums=weight_albums, 
-                                                        weight_tracks=weight_tracks)
+                                                        weight_tracks=weight_tracks,
+                                                        album_limit=album_limit)
             st.session_state.track_uris = ['spotify:track:' + i for i in list(st.session_state.track_info.index)]
             spotipy_start_playback(uris=st.session_state.track_uris)
             st.session_state.playlist_id = None

@@ -180,7 +180,6 @@ def get_relevant_albums(min_year,
         base_api += '&list='
     relevant_albums = requests.get(base_api)
     result_df = pd.DataFrame.from_dict(relevant_albums.json()['albums'], orient='index')
-    result_df['weighted_rank_pct'] = result_df['weighted_rank'] / result_df['weighted_rank'].sum()
     return result_df
 
 def return_tracks(albums, 
@@ -188,17 +187,36 @@ def return_tracks(albums,
                   track_length=50, 
                   replace_albums=True, 
                   weight_albums=True, 
-                  weight_tracks=True
+                  weight_tracks=True,
+                  album_limit=500
                   ):
+    # Reweight Ranks
+    albums = albums[:album_limit]
+    albums['weighted_rank_pct'] = reweight_list(albums['weighted_rank'], top_multiplier=3)
     if replace_albums == False:
         request_length = min(track_length, len(df))
+        album_choice = np.random.choice(albums['album_id'], 
+                                        replace=replace_albums, 
+                                        size=request_length, 
+                                        p=albums['weighted_rank_pct'])
     else:
-        request_length = track_length
-    #Pick Albums For Tracks Based on Weighted Rank
-    album_choice = np.random.choice(albums['album_id'], 
-                                    replace=replace_albums, 
-                                    size=request_length, 
-                                    p=albums['weighted_rank_pct'])
+        album_selection = list(albums['album_id'])
+        weighted_rank = list(albums['weighted_rank_pct'])
+        album_choice = []
+        max_occurrence_count = max(3, (track_length // len(albums)) + 1) #hardcoded right now
+        # sloppy custom way to limit random selection so top albums aren't overpulled in smaller pools
+        for i in range(track_length):
+            result = np.random.choice(album_selection, 
+                                      replace=True, 
+                                      size=1, 
+                                      p=weighted_rank)[0]
+            album_choice.append(result)
+            occurrence_count = album_choice.count(result)
+            if occurrence_count >= max_occurrence_count:
+                item_index = album_selection.index(result)
+                del album_selection[item_index]
+                del weighted_rank[item_index]
+                weighted_rank = normalize_weights(weighted_rank)
     track_results = retrieve_tracks_payload(album_ids=album_choice)
     tracks = pd.DataFrame(track_results)
     final_tracks = []

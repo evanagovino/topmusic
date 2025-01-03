@@ -8,6 +8,7 @@ from sklearn.metrics import pairwise
 from scipy import stats
 import datetime
 import json
+from decimal import Decimal
 
 from . import crud, models, schemas
 from .database import SessionLocal, engine
@@ -302,7 +303,8 @@ def get_relevant_albums(min_year: int,
                         subgenre: List[str] = Query([None]), 
                         publication: List[str] =Query([None]), 
                         list: List[str] = Query([None]), 
-                        points_weight: float = 0.5, 
+                        points_weight: float = 0.5,
+                        album_limit: int = 500,
                         db: Session = Depends(get_db)
                         ):
     db_albums = crud.get_relevant_albums(db, 
@@ -328,19 +330,22 @@ def get_relevant_albums(min_year: int,
                                         'subgenre': value.subgenre,
                                         'year': value.year,
                                         'points': value[8],
-                                        'total_points': value[8],
+                                        'total_points': value[9],
                                         'points_pct': value[8] / value[9]
                                         }
-    album_uris = [i for i in x['albums']]
-    points_position = stats.rankdata([x['albums'][i]['points'] for i in x['albums']])
-    points_pct_position = stats.rankdata([x['albums'][i]['points_pct'] for i in x['albums']])
-    for position, value in enumerate(points_position):
-        x['albums'][album_uris[position]]['points_rank'] = float(value)
-    for position, value in enumerate(points_pct_position):
-        x['albums'][album_uris[position]]['points_pct_rank'] = float(value)
-        x['albums'][album_uris[position]]['weighted_rank'] = ((x['albums'][album_uris[position]]['points_rank'] * points_weight) + (x['albums'][album_uris[position]]['points_pct_rank'] * (1 - points_weight)))
+    # album_uris = [i for i in x['albums']]
+    # points_position = stats.rankdata([x['albums'][i]['points'] for i in x['albums']])
+    # points_pct_position = stats.rankdata([x['albums'][i]['points_pct'] for i in x['albums']])
+    total_points = np.sum(x['albums'][i]['points'] for i in x['albums'])
+    total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
+    for value in x['albums']:
+        x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
+    # for position, value in enumerate(points_pct_position):
+    #     x['albums'][album_uris[position]]['points_pct_rank'] = float(value)
+    #     x['albums'][album_uris[position]]['weighted_rank'] = ((x['albums'][album_uris[position]]['points_rank'] * points_weight) + (x['albums'][album_uris[position]]['points_pct_rank'] * (1 - points_weight)))
     new_dict = {}
-    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
+    array_size = min(len(x['albums']), album_limit)
+    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True)[:array_size]:
         new_dict[value[0]] = value[1]
     x['albums'] = new_dict
     return x
