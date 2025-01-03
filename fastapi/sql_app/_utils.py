@@ -17,6 +17,9 @@ def unskew_features_function(features, unskew_features=True):
     return features
 
 def unpack_tracks(db_tracks, features):
+    """
+    Do we need both this and the below function here? They're both referenced.
+    """
     x = {'tracks': {}}
     print(type(db_tracks))
     for position, value in enumerate(db_tracks):
@@ -43,6 +46,9 @@ def unpack_tracks(db_tracks, features):
     return track_df, feature_clean_list, x
 
 def unpack_tracks_new(db_tracks, features):
+    """
+    Do we need both this and the above function here? They're both referenced.
+    """
     feature_matrix = np.empty(shape=(len(db_tracks), len(features)))
     for position, value in enumerate(features):
         feature_matrix[:, position] = [getattr(i, value) for i in db_tracks]
@@ -51,6 +57,9 @@ def unpack_tracks_new(db_tracks, features):
     return feature_matrix, track_ids, genres
 
 def unpack_genres(db_genres, features):
+    """
+    Is there an easier way to more generally unpack everything if we choose?
+    """
     x = {'genres': {}}
     for position, value in enumerate(db_genres):
         feature_clean_list = []
@@ -63,6 +72,9 @@ def unpack_genres(db_genres, features):
     return genre_df, feature_clean_list, x
 
 def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, restrict_genre=False, min_duration=60000):
+    """
+    Candidate for deletion - not sure this one is still being used.
+    """
     results = track_df[track_df.index == track_id][feature_clean_list].values.reshape(1, len(feature_clean_list))
     track_genre = track_df[track_df.index == track_id]['genre'].values[0]
     if restrict_genre:
@@ -103,6 +115,9 @@ def get_artist_cosine_similarities(artist_df, artist_location, matrix_values):
     return x
 
 def get_genre_similarities(genre_df, genre):
+    """
+    Candidate for deletion - not sure this endpoint is being used anywhere. Shold be hardcoded into the DB if it's not already.
+    """
     matrix_values = genre_df.apply(pd.Series)
     genre_location = np.where(genre_df.index == genre)[0][0]
     distances = pairwise.euclidean_distances(matrix_values)
