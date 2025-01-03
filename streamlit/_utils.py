@@ -9,9 +9,7 @@ def normalize_weights(weights):
         return [1/len(weights) for i in weights]
     
 def sort_list(lst):
-    lst.append('All')
-    lst.sort(key=lambda c: (c!='All',not c.isalnum(), c))
-    return lst
+    return ['All'] + sorted(lst)
 
 def get_genre_for_playlist(show_genres, show_subgenres):
     if show_genres == [] or show_genres is None:

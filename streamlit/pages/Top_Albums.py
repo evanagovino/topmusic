@@ -53,6 +53,7 @@ with st.sidebar:
         lists = []
         for publication in show_publications:
             lists += st.session_state.publications_payload[publication]
+        lists = sorted(lists)
         show_lists = st.multiselect('Lists', lists, default=None)
     else:
         show_publications = None

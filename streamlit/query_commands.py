@@ -4,6 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 from _utils import *
+from _mood_settings import *
 
 fastapi_url = 'http://fastapi:8000'
 
@@ -145,6 +146,17 @@ def get_track_info(track_id,
     else:
         duration_min = 0
     base_url = f'{fastapi_url}/get_similar_tracks_total/{track_id}?restrict_genre={restrict_genre}&request_length={request_length}&duration_min={duration_min}'
+    df = requests.get(base_url)
+    df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
+    return df
+
+def get_track_info_mood(mood, genres):
+    base_url = f'{fastapi_url}/get_tracks_by_features/?'
+    mood_object = mood_dictionary[mood]
+    base_url = add_musical_features_to_base_url(mood_object, base_url)
+    mood_object.import_custom_genres(genres)
+    base_url = add_genres_to_remove(mood_object, base_url)
+    print(base_url)
     df = requests.get(base_url)
     df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
     return df
