@@ -24,6 +24,28 @@ class GenreFeatures(Base):
     valence_clean = Column(Float)
     tempo_clean = Column(Float)
 
+class ArtistFeatures(Base):
+    __tablename__ = 'artist_track_details'
+    __table_args__ = {"schema": "dbt"}
+
+    artist_id = Column(String, primary_key=True)
+    danceability_raw = Column(Float)
+    energy_raw = Column(Float)
+    speechiness_raw = Column(Float)
+    acousticness_raw = Column(Float)
+    instrumentalness_raw = Column(Float)
+    liveness_raw = Column(Float)
+    valence_raw = Column(Float)
+    tempo_raw = Column(Float)
+    danceability_clean = Column(Float)
+    energy_clean = Column(Float)
+    speechiness_clean = Column(Float)
+    acousticness_clean = Column(Float)
+    instrumentalness_clean = Column(Float)
+    liveness_clean = Column(Float)
+    valence_clean = Column(Float)
+    tempo_clean = Column(Float)
+
 class TrackFeatures(Base):
     __tablename__ = "track_data"
     __table_args__ = {"schema": "dbt"}
