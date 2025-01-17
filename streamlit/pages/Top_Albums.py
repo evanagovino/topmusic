@@ -80,13 +80,16 @@ with st.sidebar:
             if 'track_uris' in st.session_state:
                 tracks = st.session_state.track_uris
             else:
-                tracks = return_tracks(relevant_albums, 
-                                        random_order=random_order,
-                                        replace_albums=repeat_albums, 
-                                        weight_albums=weight_albums, 
-                                        weight_tracks=weight_tracks,
-                                        album_limit=album_limit)
-            text_genre = get_genre_for_playlist(show_genres, show_subgenres)
+                st.session_state.track_info = return_tracks(relevant_albums, 
+                                                            random_order=random_order,
+                                                            replace_albums=repeat_albums, 
+                                                            weight_albums=weight_albums, 
+                                                            weight_tracks=weight_tracks,
+                                                            album_limit=album_limit
+                                                            )
+                st.session_state.track_uris = ['spotify:track:' + i for i in list(st.session_state.track_info.index)]
+            text_genre = get_genre_for_playlist(show_genres, 
+                                                show_subgenres)
             text_publication = get_publication_for_playlist(show_publications)
             spotify_create_playlist(tracks=tracks,
                                     year=text_year, 
