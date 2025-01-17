@@ -69,7 +69,7 @@ mood_dictionary = {
     min_valence = 0.6,
     min_tempo = 90,
     max_tempo = 115,
-    default_excluded_genres = ['Country', 'Metal'],
+    default_excluded_genres = ['Country', 'Metal', 'Experimental'],
     default_excluded_subgenres = ['Rap', 'British Rap']
 ),
     'Soundscape': MoodSettings(

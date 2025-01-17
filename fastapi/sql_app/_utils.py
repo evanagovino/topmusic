@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.metrics import pairwise
+from decimal import Decimal
 
 def normalize_weights(weights):
     weight_sum = np.sum(weights)
@@ -8,6 +9,10 @@ def normalize_weights(weights):
         return [i/weight_sum for i in weights]
     else:
         return [1/len(weights) for i in weights]
+    
+def reweight_list(weights, top_multiplier=3):
+    result = [(i - np.min(weights)) / (np.max(weights) - np.min(weights)) * ((np.min(weights) * top_multiplier) - np.min(weights)) + np.min(weights) for i in weights]
+    return normalize_weights(result)
     
 def unskew_features_function(features, unskew_features=True):
     if unskew_features:
@@ -49,6 +54,31 @@ def unpack_tracks_new(db_tracks, features):
     track_ids = [getattr(i, 'track_id') for i in db_tracks]
     genres = [getattr(i, 'genre') for i in db_tracks]
     return feature_matrix, track_ids, genres
+
+def unpack_albums(db_albums, points_weight):    
+    x = {'albums': {}}
+    for position, value in enumerate(db_albums):
+        x['albums'][value.album_uri] = {'artist': value.artist,
+                                        'album_id': value.album_uri,
+                                        'album_url': value.album_url,
+                                        'image_url': value.image_url,
+                                        'album': value.album,
+                                        'genre': value.genre,
+                                        'subgenre': value.subgenre,
+                                        'year': value.year,
+                                        'points': value[8],
+                                        'total_points': value[9],
+                                        'points_pct': value[8] / value[9]
+                                        }
+    total_points = np.sum(x['albums'][i]['points'] for i in x['albums'])
+    total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
+    for value in x['albums']:
+        x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
+    new_dict = {}
+    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
+        new_dict[value[0]] = value[1]
+    x['albums'] = new_dict
+    return x
 
 def unpack_genres(db_genres, features):
     x = {'genres': {}}

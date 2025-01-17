@@ -8,16 +8,27 @@ from _mood_settings import *
 
 fastapi_url = 'http://fastapi:8000'
 
+# Genre Functions
+
 @st.cache_data(ttl=600)
-def pull_genre_payload():
+def pull_genre_payload() -> dict:
+    """
+    Returns dictionary of genres, with associated subgenres
+    """
     genres_raw = requests.get(f'{fastapi_url}/genres/')
     return genres_raw.json()['genres']
 
-def pull_unique_genres(genres):
+def pull_unique_genres(genres: dict) -> list:
+    """
+    Returns list of unique genres, sorted by name
+    """
     genres = [i for i in genres]
     return sort_list(genres)
 
-def pull_unique_subgenres(genres):
+def pull_unique_subgenres(genres: dict) -> list:
+    """
+    Returns list of unique subgenres, sorted by name
+    """
     subgenres = []
     for i in genres.values():
         subgenres += i
@@ -25,6 +36,9 @@ def pull_unique_subgenres(genres):
 
 # @st.cache_data(ttl=600)
 def initiate_genres():
+    """
+    Function to add genre payload, list of genres, and list of subgenres to Streamlit session
+    """
     if 'genres_payload' not in st.session_state:
         st.session_state.genres_payload = pull_genre_payload()
     if 'all_genres' not in st.session_state:
@@ -32,53 +46,90 @@ def initiate_genres():
     if 'all_subgenres' not in st.session_state:
         st.session_state.all_subgenres = pull_unique_subgenres(st.session_state.genres_payload)
 
+# Artist Functions
+
 @st.cache_data(ttl=600)
-def pull_artist_payload():
+def pull_artist_payload() -> dict:
+    """
+    Returns dictionary of artists, with associated Artist IDs (note these are Spotify IDs) 
+    """
     artists_raw = requests.get(f'{fastapi_url}/artists/')
     return artists_raw.json()['artists']
 
-def pull_unique_artists(artists):
+def pull_unique_artists(artists: dict) -> list:
+    """
+    Returns sorted list of unique artists
+    """
     artists = [i for i in artists]
     return sort_list(artists)
 
 def initiate_artists():
+    """
+    Function to add artist payload and list of artists to Streamlit session
+    """
     if 'all_artists' not in st.session_state:
         st.session_state.artists_payload = pull_artist_payload()
         st.session_state.all_artists = pull_unique_artists(st.session_state.artists_payload)
 
+# Publication Functions
+
 @st.cache_data(ttl=600)
-def pull_publication_payload():
+def pull_publication_payload() -> dict:
+    """
+    Returns dictionary of publications, with associated lists
+    """
     publications_raw = requests.get(f'{fastapi_url}/publications/')
     return publications_raw.json()['publications']
 
-def pull_unique_publications(publications):
+def pull_unique_publications(publications: dict) -> list:
+    """
+    Returns sorted list of unique publications
+    """
     publications = [i for i in publications]
     return sort_list(publications)
 
 def initiate_publications():
+    """
+    Add publication payload and list of publications to Streamlit session
+    """
     if 'all_publications' not in st.session_state:
         st.session_state.publications_payload = pull_publication_payload()
         st.session_state.all_publications = pull_unique_publications(st.session_state.publications_payload)
 
-def retrieve_artist_id(artist):
+def retrieve_artist_id(artist: str) -> str:
+    """
+    Returns artist ID based on artist name
+    """
     return st.session_state.artists_payload[artist]
 
-def retrieve_album_id(album):
+def retrieve_album_id(album: str) -> str:
+    """
+    Returns album ID based on album name
+    """
     return st.session_state.albums_payload[album]
 
-def retrieve_track_id(track):
+def retrieve_track_id(track: str) -> str:
+    """
+    Returns track ID based on a track name
+    """
     for tracks in st.session_state.tracks_payload:
         if tracks['track_name'] == track:
             return tracks['track_id']
 
 
 @st.cache_data(ttl=600)
-def retrieve_albums_payload(artist_id=None):
+def retrieve_albums_payload(artist_id: str = None) -> dict:
+    """
+    Returns payload of albums based on an artist ID
+    """
     if artist_id:
         artists_raw = requests.get(f'{fastapi_url}/albums_for_artist/{artist_id}')
         return artists_raw.json()['albums']
 
-def pull_unique_albums(albums):
+def pull_unique_albums(albums: dict) -> list:
+    """
+    Returns list of unique albums based on a payload of albums
+    """
     if albums:
         albums = [i for i in albums]
     else:
@@ -86,12 +137,16 @@ def pull_unique_albums(albums):
     return sort_list(albums)
 
 @st.cache_data(ttl=600)
-def retrieve_tracks_payload(artist_id=None, album_id=None, album_ids=None):
+def retrieve_tracks_payload(artist_id: str = None, 
+                            album_id: str = None, 
+                            album_ids: list = None) -> dict:
+    """
+    Returns list of track IDs for a given input
+    """
     if album_ids is not None:
         base_id = f'{fastapi_url}/tracks_for_albums/?'
         for album in album_ids:
             base_id += f'&album_ids={album}'
-        #print(base_id)
         tracks_raw = requests.get(base_id)
     elif album_id is not None:
         base_id = f'{fastapi_url}/tracks_for_album/{album_id}'
@@ -103,7 +158,10 @@ def retrieve_tracks_payload(artist_id=None, album_id=None, album_ids=None):
         tracks_raw = None
     return tracks_raw.json()['tracks']
 
-def pull_unique_tracks(tracks):
+def pull_unique_tracks(tracks: dict) -> list:
+    """
+    Returns list of track names given a payload of track IDs
+    """
     if tracks:
         tracks = [i['track_name'] for i in tracks]
     else:
@@ -112,7 +170,11 @@ def pull_unique_tracks(tracks):
 
 
 @st.cache_data(ttl=600)
-def retrieve_popular_tracks(artist_id, album_id=None):
+def retrieve_popular_tracks(artist_id: str, 
+                            album_id: str = None) -> str:
+    """
+    Returns randomized track ID given an artist ID or album ID
+    """
     if album_id:
         tracks_raw = requests.get(f'{fastapi_url}/random_track_from_album/{album_id}')
     else:
@@ -121,12 +183,15 @@ def retrieve_popular_tracks(artist_id, album_id=None):
     return tracks_raw.json()['tracks'][track_name]['track_id']
 
 #@st.cache_data(ttl=600)
-def get_track_info(track_id, 
-                   request_length=50, 
-                   restrict_genre=False, 
-                   duration_min_minute=True, 
-                   unskew_features=True
-                   ):
+def get_track_info(track_id: str, 
+                   request_length: int = 50, 
+                   restrict_genre: bool = False, 
+                   duration_min_minute: bool = True, 
+                   unskew_features: bool = True
+                   ) -> pd.DataFrame:
+    """
+    Returns dataframe of similar tracks given a Track ID
+    """
     if duration_min_minute:
         duration_min = 60000
     else:
@@ -136,7 +201,11 @@ def get_track_info(track_id,
     df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
     return df
 
-def get_track_info_mood(mood, genres):
+def get_track_info_mood(mood: str, 
+                        genres: list) -> pd.DataFrame:
+    """
+    Returns dataframe of recommended tracks given mood and list of genres
+    """
     base_url = f'{fastapi_url}/get_tracks_by_features/?'
     mood_object = mood_dictionary[mood]
     base_url = add_musical_features_to_base_url(mood_object, base_url)
@@ -148,13 +217,16 @@ def get_track_info_mood(mood, genres):
     return df
 
 @st.cache_data(ttl=600)
-def get_relevant_albums(min_year, 
-                        max_year, 
-                        genre=None, 
-                        subgenre=None, 
-                        publication=None, 
-                        list=None
-                        ):
+def get_relevant_albums(min_year: int, 
+                        max_year: int, 
+                        genre: str = None, 
+                        subgenre: str = None, 
+                        publication: str= None, 
+                        list: str= None
+                        ) -> pd.DataFrame:
+    """
+    Returns dataframe of relevant albums given year, genre, subgenre, publication, and list inputs
+    """
     base_api = f'{fastapi_url}/get_relevant_albums/?min_year={min_year}&max_year={max_year}'
     if genre:
         for item in genre:
@@ -182,7 +254,7 @@ def get_relevant_albums(min_year,
     result_df = pd.DataFrame.from_dict(relevant_albums.json()['albums'], orient='index')
     return result_df
 
-def return_tracks(albums, 
+def return_tracks(album_uris, 
                   random_order=True, 
                   track_length=50, 
                   replace_albums=True, 
@@ -190,48 +262,15 @@ def return_tracks(albums,
                   weight_tracks=True,
                   album_limit=500
                   ):
-    # Reweight Ranks
-    albums = albums[:album_limit]
-    albums['weighted_rank_pct'] = reweight_list(albums['weighted_rank'])
-    if replace_albums == False:
-        request_length = min(track_length, len(df))
-        album_choice = np.random.choice(albums['album_id'], 
-                                        replace=replace_albums, 
-                                        size=request_length, 
-                                        p=albums['weighted_rank_pct'])
-    else:
-        album_selection = list(albums['album_id'])
-        weighted_rank = list(albums['weighted_rank_pct'])
-        album_choice = []
-        max_occurrence_count = max(3, (track_length // len(albums)) + 1) #hardcoded right now
-        # sloppy custom way to limit random selection so top albums aren't overpulled in smaller pools
-        for i in range(track_length):
-            result = np.random.choice(album_selection, 
-                                      replace=True, 
-                                      size=1, 
-                                      p=weighted_rank)[0]
-            album_choice.append(result)
-            occurrence_count = album_choice.count(result)
-            if occurrence_count >= max_occurrence_count:
-                item_index = album_selection.index(result)
-                del album_selection[item_index]
-                del weighted_rank[item_index]
-                weighted_rank = normalize_weights(weighted_rank)
-    track_results = retrieve_tracks_payload(album_ids=album_choice)
-    tracks = pd.DataFrame(track_results)
-    final_tracks = []
-    for album in album_choice:
-        available = len(tracks[tracks['album_id'] == album]['track_id'])
-        if available > 0:
-            track_to_add = np.random.choice(tracks[tracks['album_id'] == album]['track_id'])
-            final_tracks.append(track_to_add)
-            tracks = tracks[tracks['track_id'] != track_to_add].reset_index(drop=True)
-    df = pd.DataFrame()
-    df['tracks'] = final_tracks
-    track_results_two = pd.DataFrame(track_results)
-    df = df.merge(pd.DataFrame(track_results_two), left_on='tracks', right_on='track_id')
-    df.index = df['tracks']
-    return df
+    base_url = f'{fastapi_url}/return_tracks_from_albums/?'
+    for album in album_uris['album_id'][:album_limit]:
+        base_url += f'&album_uris={album}'
+    base_url += f'&album_limit={album_limit}'
+    tracks= requests.get(base_url)
+    if tracks.status_code == 200:
+        df = pd.DataFrame(tracks.json()['tracks'])
+        df.index = df['track_id']
+        return df
 
 # @st.cache_data
 def get_album_accolades(album_id, n_accolades=10):
@@ -247,10 +286,10 @@ def get_album_accolades(album_id, n_accolades=10):
             else:
                 st.write('No Accolades Found For Album')
 
-# @st.cache_data
-def get_album_accolades_multiple_albums(album_ids, n_accolades=10):
+@st.cache_data
+def get_album_accolades_multiple_albums(album_ids, n_accolades=10, album_limit=50):
     base_id = f'{fastapi_url}/get_album_accolades_multiple_albums/?'
-    for album in album_ids:
+    for album in album_ids[:album_limit]:
         base_id += f'&album_ids={album}'
     accolades = requests.get(base_id)
     if accolades.status_code == 200:

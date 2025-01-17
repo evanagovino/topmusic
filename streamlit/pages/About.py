@@ -9,7 +9,7 @@ st.subheader('Purpose')
 
 st.markdown('''**TopMusic** is a site that helps you find new music. It leverages track metadata from Spotify and dozens of of year-end lists to give you recommendations based on an artist, genre, or year. 
             
-Currently it features over **45,000 tracks** from over **4,500 albums** released since 2010. It is updated regularly to add new lists and new albums.''')
+Currently it features over **55,000 tracks** from over **5,000 albums** released since 2000. It is updated regularly to add new lists and new albums.''')
 
 st.subheader('How to Use')
 
