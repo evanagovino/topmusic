@@ -92,6 +92,18 @@ def unpack_genres(db_genres, features):
     genre_df = pd.DataFrame.from_dict(x['genres'], orient='index')
     return genre_df, feature_clean_list, x
 
+def unpack_artists(db_artists, features):
+    x = {'artists': {}}
+    for position, value in enumerate(db_artists):
+        feature_clean_list = []
+        x['artists'][value.artist_id] = {}
+        for feature in features:
+            feature_clean = feature.split('_')[0]
+            feature_clean_list.append(feature_clean)
+            x['artists'][value.artist_id][feature_clean] = getattr(value, feature)
+    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
+    return artist_df, feature_clean_list, x
+
 def get_track_similarities(track_df, track_id, feature_clean_list, n_tracks, x, restrict_genre=False, min_duration=60000):
     results = track_df[track_df.index == track_id][feature_clean_list].values.reshape(1, len(feature_clean_list))
     track_genre = track_df[track_df.index == track_id]['genre'].values[0]
@@ -141,6 +153,17 @@ def get_genre_similarities(genre_df, genre):
     x = {'genres': {}}
     for position, value in enumerate(genre_results):
         x['genres'][value] = float(distance_results[position])
+    return x
+
+def get_artist_similarities(artist_df, artist_id):
+    matrix_values = artist_df.apply(pd.Series)
+    artist_location = np.where(artist_df.index == artist_id)[0][0]
+    distances = pairwise.euclidean_distances(matrix_values)
+    distance_results = np.sort(distances[artist_location])[::-1]
+    artist_results = artist_df.index[np.argsort(distances[artist_location])][::-1]
+    x = {'artists': {}}
+    for position, value in enumerate(artist_results):
+        x['artists'][value] = float(distance_results[position])
     return x
 
 def get_random_track(db, weight_by_popularity = True):

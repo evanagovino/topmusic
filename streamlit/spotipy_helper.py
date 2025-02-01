@@ -100,7 +100,6 @@ def spotipy_current_playback():
 # @st.cache_data
 def spotipy_currently_playing(time_sleep=0, max_time_sleep=2):
     time.sleep(time_sleep)
-    #st.write(time_sleep)
     try:
         current_song = st.session_state.spotify.currently_playing()
         payload = {'song_name': current_song['item']['name'],

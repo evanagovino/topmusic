@@ -67,7 +67,6 @@ def radio_callback(album_limit=100):
         if 'track_id' not in st.session_state:
             st.session_state.track_id = retrieve_popular_tracks(artist_id=st.session_state.artist_id, 
                                                                 album_id=album_id)
-        #st.write(st.session_state.track_id)
         st.session_state.track_info = get_track_info(track_id=st.session_state.track_id,
                                                      restrict_genre = st.session_state.restrict_genre)
     elif st.session_state.radio_type == 'Genre':

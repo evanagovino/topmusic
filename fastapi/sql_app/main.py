@@ -492,7 +492,7 @@ def get_similar_artists_by_track_details(artist_id: str,
     db_artists = crud.get_artist_track_details(db)
     artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
     if artist_id not in artist_df.index:
-        raise HTTPException(status_code=404, detail="Genre not found")
+        raise HTTPException(status_code=404, detail="Artist not found")
     x = get_artist_similarities(artist_df, artist_id)
     return x
 
@@ -567,7 +567,7 @@ def get_total_track_similarity_new(track_id: str,
         df['genre_similarity_score'] = 0
     else:
         db_genres = crud.get_similar_genres(db)
-        genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
+        genre_df, _, _ = unpack_genres(db_genres, features)
         if genre not in genre_df.index:
             raise HTTPException(status_code=404, detail="Genre not found")
         x_genre = get_genre_similarities(genre_df, genre)
@@ -575,11 +575,21 @@ def get_total_track_similarity_new(track_id: str,
         df_genre.columns = ['genre_similarity_score']
         df = df.merge(df_genre, left_on='genre', right_index=True)
     print('Got Similar Genres For Track', datetime.datetime.now())
+    #Get Similar Artists For Track
+    db_artists = crud.get_artist_track_details(db)
+    artist_df, _, _ = unpack_artists(db_artists, features)
+    if artist_id not in artist_df.index:
+        raise HTTPException(status_code=404, detail="Artist ID not found")
+    x_artist = get_artist_similarities(artist_df, artist_id)
+    df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
+    df_artist.columns = ['artist_similarity_score']
+    df = df.merge(df_artist, left_on='artist_id', right_index=True)
+    print('Got Similar Genres For Track', datetime.datetime.now())
     df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
     df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
-    # df['artist_score_n'] = ((df['artist_similarity_score_track_details'].max() - df['artist_similarity_score_track_details']) / (df['artist_similarity_score_track_details'].max() - df['artist_similarity_score_track_details'].min())).fillna(1)
-    # df['weighted_score'] = (df['similarity_score_n'] * 0.1) + (df['artist_score_n'] * 0.45) + (df['genre_score_n'] * 0.45)
-    df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['genre_score_n'] * 0.3)
+    df['artist_score_n'] = ((df['artist_similarity_score'].max() - df['artist_similarity_score']) / (df['artist_similarity_score'].max() - df['artist_similarity_score'].min())).fillna(1)
+    df['weighted_score'] = (df['similarity_score_n'] * 0.1) + (df['artist_score_n'] * 0.45) + (df['genre_score_n'] * 0.45)
+    # df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['genre_score_n'] * 0.3)
     df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
     df = df[df['artist_rank'] <= 5]
     df['reweighted_score'] = normalize_weights(np.power(df['weighted_score'], 5))
@@ -859,9 +869,12 @@ def get_tracks_by_features(
                            max_valence: float = 1, 
                            min_tempo: float = 50, 
                            max_tempo: float = 170,
+                           min_popularity: float = 0,
+                           max_popularity: float = 100,
                            track_limit: int = 50,
                            min_duration: int = 60000,
                            max_duration: int = 600000,
+                           weight_by_popularity: bool = True,
                            db: Session = Depends(get_db)
                            ):
     db_tracks = crud.get_tracks_by_features(db, 
@@ -884,6 +897,8 @@ def get_tracks_by_features(
                                             max_valence=max_valence,
                                             min_tempo=min_tempo,
                                             max_tempo=max_tempo,
+                                            min_popularity=min_popularity,
+                                            max_popularity=max_popularity,
                                             min_duration=min_duration,
                                             max_duration=max_duration
                                             )
@@ -894,7 +909,12 @@ def get_tracks_by_features(
     print('Successfully pulled down data')
     x = {'tracks': {}}
     track_length = min(len(db_tracks), track_limit)
-    track_selection = np.random.choice(db_tracks, track_length, replace=False)
+    if weight_by_popularity:
+        track_popularity = [i.track_popularity for i in db_tracks]
+    else:
+        track_popularity = [1 for i in db_tracks]
+    track_popularity = reweight_list(track_popularity)
+    track_selection = np.random.choice(db_tracks, track_length, replace=False, p=track_popularity)
     features= ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
     features = unskew_features_function(features)
     _, _, tracks = unpack_tracks(track_selection, features)

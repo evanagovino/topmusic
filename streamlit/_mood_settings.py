@@ -3,7 +3,7 @@ from dataclasses import dataclass
 @dataclass
 class MoodSettings:
     all_genres: list = ('African', 'Alternative', 'Classical', 'Contemporary', 'Country', 'Electronic', 'Experimental', 'Indie Rock', 'Jazz', 'Latin', 'Metal', 'Pop', 'Rap', 'R&B', 'Reggae', 'Rock')
-    musical_features: list = ('min_danceability','max_danceability', 'min_energy', 'max_energy', 'min_speechiness', 'max_speechiness', 'min_acousticness', 'max_acousticness', 'min_instrumentalness', 'max_instrumentalness', 'min_liveness', 'max_liveness', 'min_valence', 'max_valence', 'min_tempo', 'max_tempo')
+    musical_features: list = ('min_danceability','max_danceability', 'min_energy', 'max_energy', 'min_speechiness', 'max_speechiness', 'min_acousticness', 'max_acousticness', 'min_instrumentalness', 'max_instrumentalness', 'min_liveness', 'max_liveness', 'min_valence', 'max_valence', 'min_popularity', 'max_popularity', 'min_tempo', 'max_tempo')
     excluded_genres: list = (None)
     excluded_subgenres: list = (None)
     default_excluded_genres: list = (None)
@@ -23,6 +23,8 @@ class MoodSettings:
     max_liveness: float = (None)
     min_valence: float = (None)
     max_valence: float = (None)
+    min_popularity: float = (None)
+    max_popularity: float = (None)
     min_tempo: float = (None)
     max_tempo: float = (None)
 
@@ -66,11 +68,13 @@ mood_dictionary = {
     default_excluded_subgenres = ['Country']
 ),
     'Chill': MoodSettings(
-    min_valence = 0.6,
+    # min_valence = 0.6,
+    min_danceability = 0.7,
     min_tempo = 90,
     max_tempo = 115,
+    min_popularity = 50,
     default_excluded_genres = ['Country', 'Metal', 'Experimental', 'Classical'],
-    default_excluded_subgenres = ['Rap', 'British Rap']
+    default_excluded_subgenres = ['Rap', 'British Rap', 'Reggaeton', 'K-Pop', 'Pop', 'R&B']
 ),
     'Soundscape': MoodSettings(
     min_instrumentalness = 0.9,
