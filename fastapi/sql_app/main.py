@@ -144,6 +144,184 @@ def return_tracks(db,
                 final_tracks.append(track)
     return final_tracks
 
+def _get_similar_genres(genre: str, 
+                        features: list,
+                        unskew_features: bool,
+                        db
+                        ):
+    features = unskew_features_function(features, unskew_features)
+    db_genres = crud.get_similar_genres(db)
+    genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
+    if genre not in genre_df.index:
+        raise HTTPException(status_code=404, detail="Genre not found")
+    # x = get_genre_similarities(genre_df, genre)
+    return get_euclidean_distances(df=genre_df,
+                                   input=genre,
+                                   dict_name='genres'
+                                   )
+
+def _get_similar_artists(artist_id: str,
+                         features: list,
+                         unskew_features: bool,
+                         db
+                         ):
+    features = unskew_features_function(features, unskew_features)
+    db_artists = crud.get_artist_track_details(db)
+    artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
+    if artist_id not in artist_df.index:
+        raise HTTPException(status_code=404, detail="Artist not found")
+    # x = get_artist_similarities(artist_df, artist_id)
+    return get_euclidean_distances(df=artist_df,
+                                   input=artist_id,
+                                   dict_name='artists'
+                                   )
+
+def _get_similar_tracks_by_euclidean_distance(track_id: str,
+                                              genre: str,
+                                              features: list,
+                                              unskew_features: bool,
+                                              restrict_genre: bool,
+                                              min_duration: int,
+                                              max_duration: int,
+                                              n_tracks: int,
+                                              db
+                                              ):
+    features = unskew_features_function(features, unskew_features)
+    if restrict_genre:
+        db_tracks = crud.get_all_tracks_genre(db, 
+                                              genre=genre, 
+                                              min_duration=min_duration, 
+                                              max_duration=max_duration
+                                              )
+    else:
+        db_tracks = crud.get_all_tracks(db, 
+                                        min_duration=min_duration, 
+                                        max_duration=max_duration
+                                        )
+    feature_matrix, track_ids, _ = unpack_tracks_new(db_tracks, 
+                                                     features
+                                                     )
+    if track_id not in track_ids:
+        raise HTTPException(status_code=404, detail="Track not found")
+    similar_tracks, similar_scores = get_track_similarities(track_id=track_id,
+                                                            feature_matrix=feature_matrix, 
+                                                            track_ids=track_ids,
+                                                            n_tracks = n_tracks
+                                                            )
+    temp_similar_tracks_dict = {}
+    for position, value in enumerate(similar_tracks):
+        temp_similar_tracks_dict[value] = similar_scores[position]
+    similar_track_data = [i for i in db_tracks if i.track_id in similar_tracks]
+    _, _, x_similar = unpack_tracks(similar_track_data, 
+                                    features
+                                    )
+    for x in x_similar['tracks']:
+        x_similar['tracks'][x]['track_euclidean_distance'] = temp_similar_tracks_dict[x]
+    sorted_tracks = sorted(x_similar['tracks'].items(), key=lambda x: x[1]['track_euclidean_distance'])
+    x = {'tracks': {}}
+    for track in sorted_tracks:
+        x['tracks'][track[0]] = track[1]
+    return x
+    
+def _get_similar_tracks(track_id: str, 
+                        features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
+                        unskew_features: bool = True, 
+                        restrict_genre: bool = True, 
+                        n_tracks: int = 500,
+                        request_length: int = 50,
+                        min_duration: int = 60000,
+                        max_duration: int = 600000,
+                        track_weight: float = 0.1,
+                        genre_weight: float = 0.45,
+                        artist_weight: float = 0.45,
+                        db: Session = Depends(get_db)
+                        ):
+    #Get Data For Track
+    print('Request Start', datetime.datetime.now())
+    db_track_data = crud.get_track_data(db, track_id=track_id)
+    if len(db_track_data) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    artist_id = db_track_data[0].artist_id
+    genre = db_track_data[0].genre
+    #Get Similar Tracks
+    print('Got Data for Track', datetime.datetime.now())
+    x_similar = _get_similar_tracks_by_euclidean_distance(track_id = track_id,
+                                                          genre = genre,
+                                                          features = features,
+                                                          unskew_features = unskew_features,
+                                                          restrict_genre = restrict_genre,
+                                                          min_duration = min_duration,
+                                                          max_duration = max_duration,
+                                                          n_tracks = 500,
+                                                          db = db
+                                                         )
+    df = pd.DataFrame.from_dict(x_similar['tracks'], orient='index')
+    # print('Got Similar Tracks', datetime.datetime.now())
+    # #Get Similar Artists For Track
+    # db_albums = crud.get_similar_artists(db)
+    # x = {'artists': {}}
+    # for position, value in enumerate(db_albums):
+    #     x['artists'][value.artist_id] = value.publication_data
+    # artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
+    # try:
+    #     artist_location = np.where(artist_df.index == artist_id)[0][0]
+    # except:
+    #     raise HTTPException(status_code=404, detail="No artists that match criteria")
+    # matrix_values = artist_df.apply(pd.Series)
+    # x_artist = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
+    # df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
+    # df_artist.columns = ['artist_similarity_score']
+    # df = df.merge(df_artist, left_on='artist_id', right_index=True)
+    # print('Got Similar Artists For Track', datetime.datetime.now())
+    #Get Similar Genres For Track
+    if restrict_genre:
+        df['genre_euclidean_distance'] = 0
+    else:
+        x_genre = _get_similar_genres(genre=genre,
+                                      features=features,
+                                      unskew_features=unskew_features,
+                                      db=db)
+        df_genre = pd.DataFrame.from_dict(x_genre['genres'], orient='index')
+        df_genre.columns = ['genre_euclidean_distance']
+        df = df.merge(df_genre, left_on='genre', right_index=True)
+    print('Got Similar Genres For Track', datetime.datetime.now())
+    #Get Similar Artists For Track
+    x_artist = _get_similar_artists(artist_id=artist_id,
+                                    features=features,
+                                    unskew_features=unskew_features,
+                                    db=db)
+    df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
+    df_artist.columns = ['artist_euclidean_distance']
+    df = df.merge(df_artist, left_on='artist_id', right_index=True)
+    print('Got Similar Artists For Track', datetime.datetime.now())
+    df['similarity_score_n'] = (df['track_euclidean_distance'].max() - df['track_euclidean_distance']) / (df['track_euclidean_distance'].max() - df['track_euclidean_distance'].min())
+    df['genre_score_n'] = ((df['genre_euclidean_distance'].max() - df['genre_euclidean_distance']) / (df['genre_euclidean_distance'].max() - df['genre_euclidean_distance'].min())).fillna(1)
+    df['artist_score_n'] = ((df['artist_euclidean_distance'].max() - df['artist_euclidean_distance']) / (df['artist_euclidean_distance'].max() - df['artist_euclidean_distance'].min())).fillna(1)
+    df['weighted_score'] = (df['similarity_score_n'] * track_weight) + (df['artist_score_n'] * artist_weight) + (df['genre_score_n'] * genre_weight)
+    # df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['genre_score_n'] * 0.3)
+    # df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['artist_similarity_score'] * 0.15) + (df['genre_score_n'] * 0.15)
+    df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
+    df = df[df['artist_rank'] <= 5]
+    df['reweighted_score'] = normalize_weights(df['weighted_score'])
+    request_length = min(request_length, len(df))
+    song_selections = np.random.choice(df.index, 
+                                       size=request_length, 
+                                       replace=False, 
+                                       p=df['reweighted_score']
+                                       )
+    song_selections = song_selections[np.where(song_selections != track_id)]
+    if len(song_selections) == request_length:
+        song_selections = song_selections[:request_length]
+    df_one = df[df.index == track_id]
+    df_two = df[df.index.isin(song_selections)]
+    df = pd.concat([df_one, df_two])
+    df = df.reset_index()
+    df = df.rename(columns={'index': 'track_id'})
+    final_x = {}
+    final_x['tracks'] = json.loads(df.to_json(orient='records'))
+    print('Finish Job', datetime.datetime.now())
+    return final_x
+
 # Endpoints
 
 
@@ -287,7 +465,10 @@ def get_tracks_for_albums(album_ids: List[str] = Query([None]), db: Session = De
     return x
 
 @app.get("/random_track_from_artist/{artist_id}", response_model=schemas.Tracks)
-def get_random_track_from_artist(artist_id: str, weight_by_popularity: bool = True, db: Session = Depends(get_db)):
+def get_random_track_from_artist(artist_id: str, 
+                                 weight_by_popularity: bool = True, 
+                                 db: Session = Depends(get_db)
+                                 ):
     db_artist = crud.get_tracks_for_artist(db, artist_id=artist_id)
     if db_artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
@@ -305,7 +486,10 @@ def get_random_track_from_artist(artist_id: str, weight_by_popularity: bool = Tr
     return {'tracks': {track_choice: tracks['tracks'][track_choice]}}
 
 @app.get("/random_track_from_album/{album_id}", response_model=schemas.Tracks)
-def get_random_track_from_album(album_id: str, weight_by_popularity: bool = True, db: Session = Depends(get_db)):
+def get_random_track_from_album(album_id: str, 
+                                weight_by_popularity: bool = True, 
+                                db: Session = Depends(get_db)
+                                ):
     db_album = crud.get_tracks_for_album(db, album_id=album_id)
     if db_album is None:
         raise HTTPException(status_code=404, detail="Album not found")
@@ -324,31 +508,6 @@ def get_random_track_from_album(album_id: str, weight_by_popularity: bool = True
     track_choice = np.random.choice(list(tracks['tracks'].keys()), p=weights)
     return {'tracks': {track_choice: tracks['tracks'][track_choice]}}
 
-@app.get("/get_similar_tracks/{track_id}", response_model=schemas.Tracks)
-def get_similar_tracks(track_id: str, 
-                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
-                       unskew_features: bool = True, 
-                       restrict_genre: bool = True, 
-                       n_tracks: int = 500,
-                       min_duration: int = 60000,
-                       max_duration: int = 600000,
-                       db: Session = Depends(get_db)
-                       ):
-    features = unskew_features_function(features, unskew_features)
-    db_tracks = crud.get_all_tracks(db, min_duration=min_duration, max_duration=max_duration)
-    track_df, feature_clean_list, x = unpack_tracks(db_tracks, features)
-    if track_id not in track_df.index:
-        raise HTTPException(status_code=404, detail="Track not found")
-    x_similar = get_track_similarities(track_df, 
-                                       track_id, 
-                                       feature_clean_list, 
-                                       n_tracks,   
-                                       x, 
-                                       restrict_genre,
-                                       min_duration,
-                                       max_duration)
-    return x_similar
-
 @app.get("/get_relevant_albums/", response_model=schemas.Albums)
 def get_relevant_albums(min_year: int, 
                         max_year: int, 
@@ -359,6 +518,11 @@ def get_relevant_albums(min_year: int,
                         points_weight: float = 0.5,
                         db: Session = Depends(get_db)
                         ):
+    """
+    Return a list of relevant albums given a set of inputs
+
+    Returned in dictionary format, used for Streamlit
+    """
     return pull_relevant_albums(db=db, 
                                 min_year=min_year,
                                 max_year=max_year, 
@@ -381,6 +545,11 @@ def get_relevant_albums_new(min_year: int,
                             randomize: bool = False,
                             db: Session = Depends(get_db)
                             ):
+    """
+    Return a list of relevant albums given a set of inputs
+
+    Returned in list format, used for Flutterflow
+    """
     x = pull_relevant_albums(db=db, 
                              min_year=min_year,
                              max_year=max_year, 
@@ -402,23 +571,30 @@ def get_recommended_tracks(artist_id: str = None,
                            genre: str = None, 
                            db: Session = Depends(get_db)
                            ):
+    """
+    Get recommended tracks for either an artist ID input or a genre input.
+
+    If Artist ID is provided, it will be used and all other inputs will be ignored.
+
+    Used for Flutterflow endpoint.
+    """
     if artist_id is None and genre is None:
         raise HTTPException(status_code=404, detail="Artist ID or Genre must be provided")
     if artist_id:
         db_artist = crud.get_tracks_for_artist(db, artist_id=artist_id)
-        if db_artist is None:
+        if len(db_artist) == 0:
             raise HTTPException(status_code=404, detail="Artist not found")
         track_id = get_random_track(db_artist)
-        return get_total_track_similarity_copy(track_id,
-                                               features = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo'], 
-                                               unskew_features = True, 
-                                               restrict_genre = True, 
-                                               n_tracks = 500,
-                                               request_length = 50,
-                                               min_duration = 60000,
-                                               max_duration = 600000,
-                                               db = db
-                                               )
+        return _get_similar_tracks(track_id,
+                                   features = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo'], 
+                                   unskew_features = True, 
+                                   restrict_genre = True, 
+                                   n_tracks = 500,
+                                   request_length = 50,
+                                   min_duration = 60000,
+                                   max_duration = 600000,
+                                   db = db
+                                   )
     elif genre:
         x = pull_relevant_albums(db, 
                                  min_year=2000, 
@@ -455,6 +631,11 @@ def get_recommended_tracks(artist_id: str = None,
 def get_similar_artists(artist_id: str, 
                         db: Session = Depends(get_db)
                         ):
+    """
+    Return a list of similar artists to a given artist ID by cosine similarity of placement in music publications
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
     db_albums = crud.get_similar_artists(db)
     x = {'artists': {}}
     for position, value in enumerate(db_albums):
@@ -474,13 +655,45 @@ def get_similar_genres(genre: str,
                        unskew_features: bool = True, 
                        db: Session = Depends(get_db)
                        ):
-    features = unskew_features_function(features, unskew_features)
-    db_genres = crud.get_similar_genres(db)
-    genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
-    if genre not in genre_df.index:
-        raise HTTPException(status_code=404, detail="Genre not found")
-    x = get_genre_similarities(genre_df, genre)
-    return x
+    """
+    Return a list of similar genres to a given genre by euclidean distance of musical features
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    return _get_similar_genres(genre=genre,
+                               features=features,
+                               unskew_features=unskew_features,
+                               db=db)
+
+@app.get("/get_similar_tracks_by_euclidean_distance/{track_id}", response_model=schemas.Tracks)
+def get_similar_tracks_by_euclidean_distance(track_id: str, 
+                                             features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
+                                             unskew_features: bool = True,
+                                             restrict_genre: bool = True,
+                                             min_duration: int = 60000,
+                                             max_duration: int = 600000,
+                                             n_tracks: int = 500,
+                                             db: Session = Depends(get_db)
+                                             ):
+    """
+    Return a list of similar track IDs to a given track ID by euclidean distance of musical features
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    db_track_data = crud.get_track_data(db, track_id=track_id)
+    if len(db_track_data) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    genre = db_track_data[0].genre
+    return _get_similar_tracks_by_euclidean_distance(track_id = track_id,
+                                                     genre = genre,
+                                                     features = features,
+                                                     unskew_features = unskew_features,
+                                                     restrict_genre = restrict_genre,
+                                                     min_duration = min_duration,
+                                                     max_duration = max_duration,
+                                                     n_tracks = n_tracks,
+                                                     db = db
+                                                     )
 
 @app.get("/get_similar_artists_by_track_details/{artist_id}", response_model=schemas.Artists)
 def get_similar_artists_by_track_details(artist_id: str, 
@@ -488,298 +701,65 @@ def get_similar_artists_by_track_details(artist_id: str,
                                          unskew_features: bool = True, 
                                          db: Session = Depends(get_db)
                                          ):
-    features = unskew_features_function(features, unskew_features)
-    db_artists = crud.get_artist_track_details(db)
-    artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
-    if artist_id not in artist_df.index:
-        raise HTTPException(status_code=404, detail="Artist not found")
-    x = get_artist_similarities(artist_df, artist_id)
-    return x
+    """
+    Return a list of similar artist IDs to a given artist ID by euclidean distance of median musical features for each artist
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    return _get_similar_artists(artist_id=artist_id,
+                                features=features,
+                                unskew_features=unskew_features,
+                                db=db
+                                )
 
 
-@app.get('/get_similar_tracks_total/{track_id}', response_model=schemas.Tracks)
-def get_total_track_similarity_new(track_id: str, 
-                                   features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
-                                   unskew_features: bool = True, 
-                                   restrict_genre: bool = True, 
-                                   n_tracks: int = 500,
-                                   request_length: int = 50,
-                                   min_duration: int = 60000,
-                                   max_duration: int = 600000,
-                                   db: Session = Depends(get_db)
-                                   ):
-    #Get Data For Track
-    print('Request Start', datetime.datetime.now())
-    db_track_data = crud.get_track_data(db, track_id=track_id)
-    if db_track_data is None:
-        raise HTTPException(status_code=404, detail="No tracks that match criteria")
-    artist_id = db_track_data[0].artist_id
-    genre = db_track_data[0].genre
-    #Get Similar Tracks
-    print('Got Data for Track', datetime.datetime.now())
-    features = unskew_features_function(features, unskew_features)
-    if restrict_genre:
-        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration, max_duration=max_duration)
-    else:
-        db_tracks = crud.get_all_tracks(db, min_duration=min_duration, max_duration=max_duration)
-    print('All Tracks Call', datetime.datetime.now())
-    feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
-    print('Unpacked Tracks', datetime.datetime.now())
-    if track_id not in track_ids:
-        raise HTTPException(status_code=404, detail="Track not found")
-    similar_tracks, similar_scores = get_track_similarities_new(track_id, genre, feature_matrix, track_ids, genres)
-    temp_similar_tracks_dict = {}
-    for position, value in enumerate(similar_tracks):
-        temp_similar_tracks_dict[value] = similar_scores[position]
-    similar_track_data = [i for i in db_tracks if i.track_id in similar_tracks]
-    track_df, feature_clean_list, x_similar = unpack_tracks(similar_track_data, features)
-    for x in x_similar['tracks']:
-        x_similar['tracks'][x]['similarity_score'] = temp_similar_tracks_dict[x]
-    df = pd.DataFrame.from_dict(x_similar['tracks'], orient='index')
-    print('Got Similar Tracks', datetime.datetime.now())
-    #Get Similar Artists For Track
-    # db_albums = crud.get_similar_artists(db)
-    # x = {'artists': {}}
-    # for position, value in enumerate(db_albums):
-    #     x['artists'][value.artist_id] = value.publication_data
-    # artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-    # try:
-    #     artist_location = np.where(artist_df.index == artist_id)[0][0]
-    # except:
-    #     raise HTTPException(status_code=404, detail="No artists that match criteria")
-    # matrix_values = artist_df.apply(pd.Series)
-    # x_artist = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
-    # df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
-    # df_artist.columns = ['artist_similarity_score']
-    # df = df.merge(df_artist, left_on='artist_id', right_index=True)
-    # print('Got Similar Artists For Track', datetime.datetime.now())
-    # Get Similar Artist Scores For Track
-    # db_artists = crud.get_artist_track_details(db)
-    # artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
-    # if artist_id not in artist_df.index:
-    #    raise HTTPException(status_code=404, detail="Genre not found")
-    # x_artist = get_artist_similarities(artist_df, artist_id)
-    # df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
-    # df_artist.columns = ['artist_similarity_score_track_details']
-    # df = df.merge(df_artist, left_on='artist_id', right_index=True)
-    #Get Similar Genres For Track
-    if restrict_genre:
-        df['genre_similarity_score'] = 0
-    else:
-        db_genres = crud.get_similar_genres(db)
-        genre_df, _, _ = unpack_genres(db_genres, features)
-        if genre not in genre_df.index:
-            raise HTTPException(status_code=404, detail="Genre not found")
-        x_genre = get_genre_similarities(genre_df, genre)
-        df_genre = pd.DataFrame.from_dict(x_genre['genres'], orient='index')
-        df_genre.columns = ['genre_similarity_score']
-        df = df.merge(df_genre, left_on='genre', right_index=True)
-    print('Got Similar Genres For Track', datetime.datetime.now())
-    #Get Similar Artists For Track
-    db_artists = crud.get_artist_track_details(db)
-    artist_df, _, _ = unpack_artists(db_artists, features)
-    if artist_id not in artist_df.index:
-        raise HTTPException(status_code=404, detail="Artist ID not found")
-    x_artist = get_artist_similarities(artist_df, artist_id)
-    df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
-    df_artist.columns = ['artist_similarity_score']
-    df = df.merge(df_artist, left_on='artist_id', right_index=True)
-    print('Got Similar Genres For Track', datetime.datetime.now())
-    df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
-    df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
-    df['artist_score_n'] = ((df['artist_similarity_score'].max() - df['artist_similarity_score']) / (df['artist_similarity_score'].max() - df['artist_similarity_score'].min())).fillna(1)
-    df['weighted_score'] = (df['similarity_score_n'] * 0.1) + (df['artist_score_n'] * 0.45) + (df['genre_score_n'] * 0.45)
-    # df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['genre_score_n'] * 0.3)
-    df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
-    df = df[df['artist_rank'] <= 5]
-    df['reweighted_score'] = normalize_weights(np.power(df['weighted_score'], 5))
-    request_length = min(request_length, len(df))
-    song_selections = np.random.choice(df.index, size=request_length, replace=False, p=df['reweighted_score'])
-    df = df[df.index.isin(song_selections)]
-    final_x = {}
-    final_x['tracks'] = json.loads(df.to_json(orient='index'))
-    print('Finish Job', datetime.datetime.now())
-    return final_x
+@app.get('/get_similar_tracks/{track_id}', response_model=schemas.TracksList)
+def get_similar_tracks(track_id: str, 
+                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
+                       unskew_features: bool = True, 
+                       restrict_genre: bool = True, 
+                       n_tracks: int = 250,
+                       request_length: int = 50,
+                       min_duration: int = 60000,
+                       max_duration: int = 600000,
+                       track_weight: float = 0.1,
+                       genre_weight: float = 0.45,
+                       artist_weight: float = 0.45,
+                       db: Session = Depends(get_db)
+                       ):
+    """
+    Return a list of recommended tracks given a single track
 
-def get_total_track_similarity_copy(track_id: str, 
-                                   features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
-                                   unskew_features: bool = True, 
-                                   restrict_genre: bool = True, 
-                                   n_tracks: int = 500,
-                                   request_length: int = 50,
-                                   min_duration: int = 60000,
-                                   max_duration: int = 600000,
-                                   db: Session = Depends(get_db)
-                                   ):
-    #Get Data For Track
-    print('Request Start', datetime.datetime.now())
-    db_track_data = crud.get_track_data(db, track_id=track_id)
-    if db_track_data is None:
-        raise HTTPException(status_code=404, detail="No tracks that match criteria")
-    artist_id = db_track_data[0].artist_id
-    genre = db_track_data[0].genre
-    #Get Similar Tracks
-    print('Got Data for Track', datetime.datetime.now())
-    features = unskew_features_function(features, unskew_features)
-    if restrict_genre:
-        db_tracks = crud.get_all_tracks_genre(db, genre=genre, min_duration=min_duration, max_duration=max_duration)
-    else:
-        db_tracks = crud.get_all_tracks(db, min_duration=min_duration, max_duration=max_duration)
-    print('All Tracks Call', datetime.datetime.now())
-    feature_matrix, track_ids, genres = unpack_tracks_new(db_tracks, features)
-    print('Unpacked Tracks', datetime.datetime.now())
-    if track_id not in track_ids:
-        raise HTTPException(status_code=404, detail="Track not found")
-    similar_tracks, similar_scores = get_track_similarities_new(track_id, genre, feature_matrix, track_ids, genres)
-    temp_similar_tracks_dict = {}
-    for position, value in enumerate(similar_tracks):
-        temp_similar_tracks_dict[value] = similar_scores[position]
-    similar_track_data = [i for i in db_tracks if i.track_id in similar_tracks]
-    track_df, feature_clean_list, x_similar = unpack_tracks(similar_track_data, features)
-    for x in x_similar['tracks']:
-        x_similar['tracks'][x]['similarity_score'] = temp_similar_tracks_dict[x]
-    df = pd.DataFrame.from_dict(x_similar['tracks'], orient='index')
-    print('Got Similar Tracks', datetime.datetime.now())
-    #Get Similar Artists For Track
-    db_albums = crud.get_similar_artists(db)
-    x = {'artists': {}}
-    for position, value in enumerate(db_albums):
-        x['artists'][value.artist_id] = value.publication_data
-    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-    try:
-        artist_location = np.where(artist_df.index == artist_id)[0][0]
-    except:
-        raise HTTPException(status_code=404, detail="No artists that match criteria")
-    matrix_values = artist_df.apply(pd.Series)
-    x_artist = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
-    df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
-    df_artist.columns = ['artist_similarity_score']
-    df = df.merge(df_artist, left_on='artist_id', right_index=True)
-    print('Got Similar Artists For Track', datetime.datetime.now())
-    #Get Similar Genres For Track
-    if restrict_genre:
-        df['genre_similarity_score'] = 0
-    else:
-        db_genres = crud.get_similar_genres(db)
-        genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
-        if genre not in genre_df.index:
-            raise HTTPException(status_code=404, detail="Genre not found")
-        x_genre = get_genre_similarities(genre_df, genre)
-        df_genre = pd.DataFrame.from_dict(x_genre['genres'], orient='index')
-        df_genre.columns = ['genre_similarity_score']
-        df = df.merge(df_genre, left_on='genre', right_index=True)
-    print('Got Similar Genres For Track', datetime.datetime.now())
-    df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
-    df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
-    df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['artist_similarity_score'] * 0.15) + (df['genre_score_n'] * 0.15)
-    df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
-    df = df[df['artist_rank'] <= 5]
-    df['reweighted_score'] = normalize_weights(df['weighted_score'])
-    request_length = min(request_length, len(df))
-    song_selections = np.random.choice(df.index, size=request_length, replace=False, p=df['reweighted_score'])
-    df = df[df.index.isin(song_selections)]
-    df = df.reset_index()
-    df = df.rename(columns={'index': 'track_id'})
-    final_x = {}
-    final_x['tracks'] = json.loads(df.to_json(orient='records'))
-    print('Finish Job', datetime.datetime.now())
-    return final_x
-
-
-
-
-    
-
-
-# @app.get("/get_similar_tracks_total/{track_id}", response_model=schemas.Tracks)
-# def get_total_track_similarity(track_id: str, 
-#                                features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']), 
-#                                unskew_features: bool = True, 
-#                                restrict_genre: bool = True, 
-#                                n_tracks: int = 500,
-#                                request_length: int = 50,
-#                                duration_min: int = 0,
-#                                db: Session = Depends(get_db)
-#                                ):
-#     #Get Data For Track
-#     print('Request Start', datetime.datetime.now())
-#     db_track_data = crud.get_track_data(db, track_id=track_id)
-#     if db_track_data is None:
-#         raise HTTPException(status_code=404, detail="No tracks that match criteria")
-#     x = {}
-#     for position, value in enumerate(db_track_data):
-#         for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
-#             x[feature] = getattr(value, feature)
-#     artist_id = x['artist_id']
-#     genre = x['genre']
-#     #Get Similar Tracks
-#     print('Got Data for Track', datetime.datetime.now())
-#     features = unskew_features_function(features, unskew_features)
-#     db_tracks = crud.get_all_tracks(db)
-#     print('All Tracks Call', datetime.datetime.now())
-#     track_df, feature_clean_list, x = unpack_tracks(db_tracks, features)
-#     print('Unpacked Tracks', datetime.datetime.now())
-#     if track_id not in track_df.index:
-#         raise HTTPException(status_code=404, detail="Track not found")
-#     x_similar = get_track_similarities(track_df, 
-#                                        track_id, 
-#                                        feature_clean_list, 
-#                                        n_tracks,   
-#                                        x, 
-#                                        restrict_genre,
-#                                        duration_min)
-#     df = pd.DataFrame.from_dict(x_similar['tracks'], orient='index')
-#     print('Got Similar Tracks', datetime.datetime.now())
-#     #Get Similar Artists For Track
-#     db_albums = crud.get_similar_artists(db)
-#     x = {'artists': {}}
-#     for position, value in enumerate(db_albums):
-#         x['artists'][value.artist_id] = value.publication_data
-#     artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-#     try:
-#         artist_location = np.where(artist_df.index == artist_id)[0][0]
-#     except:
-#         raise HTTPException(status_code=404, detail="No artists that match criteria")
-#     matrix_values = artist_df.apply(pd.Series)
-#     x_artist = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
-#     df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
-#     df_artist.columns = ['artist_similarity_score']
-#     df = df.merge(df_artist, left_on='artist_id', right_index=True)
-#     print('Got Similar Artists For Track', datetime.datetime.now())
-#     #Get Similar Genres For Track
-#     if restrict_genre:
-#         df['genre_similarity_score'] = 0
-#     else:
-#         db_genres = crud.get_similar_genres(db)
-#         genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
-#         if genre not in genre_df.index:
-#             raise HTTPException(status_code=404, detail="Genre not found")
-#         x_genre = get_genre_similarities(genre_df, genre)
-#         df_genre = pd.DataFrame.from_dict(x_genre['genres'], orient='index')
-#         df_genre.columns = ['genre_similarity_score']
-#         df = df.merge(df_genre, left_on='genre', right_index=True)
-#     print('Got Similar Genres For Track', datetime.datetime.now())
-#     df['similarity_score_n'] = (df['similarity_score'].max() - df['similarity_score']) / (df['similarity_score'].max() - df['similarity_score'].min())
-#     df['genre_score_n'] = ((df['genre_similarity_score'].max() - df['genre_similarity_score']) / (df['genre_similarity_score'].max() - df['genre_similarity_score'].min())).fillna(1)
-#     df['weighted_score'] = (df['similarity_score_n'] * 0.7) + (df['artist_similarity_score'] * 0.15) + (df['genre_score_n'] * 0.15)
-#     df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
-#     df = df[df['artist_rank'] <= 5]
-#     df['reweighted_score'] = normalize_weights(df['weighted_score'])
-#     print(df.shape)
-#     request_length = min(request_length, len(df))
-#     song_selections = np.random.choice(df.index, size=request_length, replace=False, p=df['reweighted_score'])
-#     df = df[df.index.isin(song_selections)]
-#     final_x = {}
-#     final_x['tracks'] = json.loads(df.to_json(orient='index'))
-#     print('Finish Job', datetime.datetime.now())
-#     return final_x
+    Used as endpoint in Artist Radio in Streamlit
+    """
+    return _get_similar_tracks(track_id,
+                               features = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo'], 
+                               unskew_features = unskew_features, 
+                               restrict_genre = restrict_genre, 
+                               n_tracks = n_tracks,
+                               request_length = request_length,
+                               min_duration = min_duration,
+                               max_duration = max_duration,
+                               track_weight = track_weight,
+                               genre_weight = genre_weight,
+                               artist_weight = artist_weight,
+                               db = db
+                               )
 
 
 @app.get('/get_track_data/{track_id}', response_model=schemas.TrackDetails)
 def get_track_data(track_id: str, 
-                   db: Session = Depends(get_db)):
+                   db: Session = Depends(get_db)
+                   ):
+    """
+    Return data for a single track.
+
+    Not actually being used anywhere in production, but potentially useful for spot-checking.
+
+    Note this doesn't currently return any audio features of the track.
+    """
     db_tracks = crud.get_track_data(db, track_id=track_id)
-    if db_tracks is None:
+    if len(db_tracks) == 0:
         raise HTTPException(status_code=404, detail="No tracks that match criteria")
     x = {}
     for position, value in enumerate(db_tracks):
@@ -787,37 +767,42 @@ def get_track_data(track_id: str,
             x[feature] = getattr(value, feature)
     return x
 
-@app.get('/get_album_accolades/{album_id}', response_model=schemas.AlbumsList)
-def get_album_accolades(album_id: str, 
-                        n_accolades: int = 10, 
-                        db: Session = Depends(get_db)):
-    db_albums = crud.get_album_accolades(db, album_id=album_id)
-    # print(len(db_albums))
-    if db_albums is None:
-        raise HTTPException(status_code=404, detail="No albums that match criteria")
-    elif len(db_albums) == 0:
-        raise HTTPException(status_code=404, detail="No albums that match criteria")
-    x = {'albums': []}
-    for position, value in enumerate(db_albums):
-        new_value = {}
-        for feature in ['rank', 'points', 'publication', 'list']:
-            new_value[feature] = getattr(value, feature)
-        x['albums'].append(new_value)
-    new_dict = []
-    counting_value = 0
-    for value in sorted(x['albums'], key=lambda x: x['points'], reverse=True):
-        new_dict.append(value)
-        counting_value += 1
-        if counting_value >= n_accolades:
-            break
-    x['albums'] = new_dict
-    return x
+# @app.get('/get_album_accolades/{album_id}', response_model=schemas.AlbumsList)
+# def get_album_accolades(album_id: str, 
+#                         n_accolades: int = 10, 
+#                         db: Session = Depends(get_db)):
+#     db_albums = crud.get_album_accolades(db, album_id=album_id)
+#     # print(len(db_albums))
+#     if db_albums is None:
+#         raise HTTPException(status_code=404, detail="No albums that match criteria")
+#     elif len(db_albums) == 0:
+#         raise HTTPException(status_code=404, detail="No albums that match criteria")
+#     x = {'albums': []}
+#     for position, value in enumerate(db_albums):
+#         new_value = {}
+#         for feature in ['rank', 'points', 'publication', 'list']:
+#             new_value[feature] = getattr(value, feature)
+#         x['albums'].append(new_value)
+#     new_dict = []
+#     counting_value = 0
+#     for value in sorted(x['albums'], key=lambda x: x['points'], reverse=True):
+#         new_dict.append(value)
+#         counting_value += 1
+#         if counting_value >= n_accolades:
+#             break
+#     x['albums'] = new_dict
+#     return x
 
 @app.get('/get_album_accolades_multiple_albums/', response_model=schemas.Albums)
 def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
                                         n_accolades: int = 10,
                                         album_limit: int = 50,
                                         db: Session = Depends(get_db)):
+    """
+    Return a dictionary of album accolades given a list of album URIs
+
+    Used as endpoint in Top Albums in Streamlit
+    """
     db_albums = crud.get_album_accolades_multiple_albums(db, album_ids=album_ids[:album_limit])
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
@@ -877,6 +862,11 @@ def get_tracks_by_features(
                            weight_by_popularity: bool = True,
                            db: Session = Depends(get_db)
                            ):
+    """
+    Return a list of tracks given a set of feature constraints
+
+    Used in Streamlit for Mood Radio
+    """
     db_tracks = crud.get_tracks_by_features(db, 
                                             excluded_genres=excluded_genres,
                                             excluded_subgenres=excluded_subgenres,
@@ -927,6 +917,9 @@ def return_tracks_from_albums(album_uris: List[str] = Query(['']),
                               track_length: int = 50,
                               shuffle_tracks: bool = True,
                               db: Session = Depends(get_db)):
+    """
+    Return a list of tracks given a list of albums
+    """
     db_albums = crud.get_album_info(db=db,
                                     album_uris=album_uris)
     if db_albums is None:

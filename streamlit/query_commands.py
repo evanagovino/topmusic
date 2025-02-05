@@ -196,9 +196,11 @@ def get_track_info(track_id: str,
         duration_min = 60000
     else:
         duration_min = 0
-    base_url = f'{fastapi_url}/get_similar_tracks_total/{track_id}?restrict_genre={restrict_genre}&request_length={request_length}&duration_min={duration_min}'
-    df = requests.get(base_url)
-    df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
+    base_url = f'{fastapi_url}/get_similar_tracks/{track_id}?restrict_genre={restrict_genre}&request_length={request_length}&duration_min={duration_min}'
+    tracks = requests.get(base_url)
+    # df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
+    df = pd.DataFrame(tracks.json()['tracks'])
+    df.index = df['track_id']
     return df
 
 def get_track_info_mood(mood: str, 
