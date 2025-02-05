@@ -66,7 +66,10 @@ def unpack_tracks_new(db_tracks, features):
     genres = [getattr(i, 'genre') for i in db_tracks]
     return feature_matrix, track_ids, genres
 
-def unpack_albums(db_albums, points_weight):    
+def unpack_albums(db_albums, points_weight):
+    """
+    Unpack a payload of albums into a dataframe, given a weight of total points vs. points pct to order them by
+    """    
     x = {'albums': {}}
     for position, value in enumerate(db_albums):
         x['albums'][value.album_uri] = {'artist': value.artist,
@@ -92,6 +95,9 @@ def unpack_albums(db_albums, points_weight):
     return x
 
 def unpack_genres(db_genres, features):
+    """
+    Unpack a payload of genres into a dataframe, given a set of features.
+    """
     x = {'genres': {}}
     for position, value in enumerate(db_genres):
         feature_clean_list = []
@@ -101,9 +107,12 @@ def unpack_genres(db_genres, features):
             feature_clean_list.append(feature_clean)
             x['genres'][value.genre][feature_clean] = getattr(value, feature)
     genre_df = pd.DataFrame.from_dict(x['genres'], orient='index')
-    return genre_df, feature_clean_list, x
+    return genre_df
 
 def unpack_artists(db_artists, features):
+    """
+    Unpack a payload of artists into a dataframe, given a set of features.
+    """
     x = {'artists': {}}
     for position, value in enumerate(db_artists):
         feature_clean_list = []
@@ -113,7 +122,8 @@ def unpack_artists(db_artists, features):
             feature_clean_list.append(feature_clean)
             x['artists'][value.artist_id][feature_clean] = getattr(value, feature)
     artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-    return artist_df, feature_clean_list, x
+    return artist_df
+
 
 def get_track_similarities(track_id: str, 
                            feature_matrix, 
@@ -132,6 +142,9 @@ def get_track_similarities(track_id: str,
     return similar_tracks, similar_scores
 
 def get_artist_cosine_similarities(artist_df, artist_location, matrix_values):
+    """
+    Return cosine similarities for a given input given a dataframe.
+    """
     distances = pairwise.cosine_similarity(matrix_values)
     distance_results = np.sort(distances[artist_location])[::-1]
     artist_results = artist_df.index[np.argsort(distances[artist_location])][::-1]
@@ -141,6 +154,9 @@ def get_artist_cosine_similarities(artist_df, artist_location, matrix_values):
     return x
 
 def get_euclidean_distances(df, input, dict_name):
+    """
+    Return euclidean distances for a given input given a dataframe.
+    """
     matrix_values = df.apply(pd.Series)
     location = np.where(df.index == input)[0][0]
     distances = pairwise.euclidean_distances(matrix_values)
@@ -151,28 +167,6 @@ def get_euclidean_distances(df, input, dict_name):
     for position, value in enumerate(results):
         x[dict_name][value] = float(distance_results[position])
     return x
-
-# def get_genre_similarities(genre_df, genre):
-#     matrix_values = genre_df.apply(pd.Series)
-#     genre_location = np.where(genre_df.index == genre)[0][0]
-#     distances = pairwise.euclidean_distances(matrix_values)
-#     distance_results = np.sort(distances[genre_location])[::-1]
-#     genre_results = genre_df.index[np.argsort(distances[genre_location])][::-1]
-#     x = {'genres': {}}
-#     for position, value in enumerate(genre_results):
-#         x['genres'][value] = float(distance_results[position])
-#     return x
-
-# def get_artist_similarities(artist_df, artist_id):
-#     matrix_values = artist_df.apply(pd.Series)
-#     artist_location = np.where(artist_df.index == artist_id)[0][0]
-#     distances = pairwise.euclidean_distances(matrix_values)
-#     distance_results = np.sort(distances[artist_location])[::-1]
-#     artist_results = artist_df.index[np.argsort(distances[artist_location])][::-1]
-#     x = {'artists': {}}
-#     for position, value in enumerate(artist_results):
-#         x['artists'][value] = float(distance_results[position])
-#     return x
 
 def get_random_track(db, weight_by_popularity = True):
     '''

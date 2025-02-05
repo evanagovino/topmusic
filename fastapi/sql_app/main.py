@@ -151,7 +151,7 @@ def _get_similar_genres(genre: str,
                         ):
     features = unskew_features_function(features, unskew_features)
     db_genres = crud.get_similar_genres(db)
-    genre_df, feature_clean_list, x = unpack_genres(db_genres, features)
+    genre_df = unpack_genres(db_genres, features)
     if genre not in genre_df.index:
         raise HTTPException(status_code=404, detail="Genre not found")
     # x = get_genre_similarities(genre_df, genre)
@@ -167,7 +167,7 @@ def _get_similar_artists(artist_id: str,
                          ):
     features = unskew_features_function(features, unskew_features)
     db_artists = crud.get_artist_track_details(db)
-    artist_df, feature_clean_list, x = unpack_artists(db_artists, features)
+    artist_df = unpack_artists(db_artists, features)
     if artist_id not in artist_df.index:
         raise HTTPException(status_code=404, detail="Artist not found")
     # x = get_artist_similarities(artist_df, artist_id)
@@ -766,32 +766,6 @@ def get_track_data(track_id: str,
         for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
             x[feature] = getattr(value, feature)
     return x
-
-# @app.get('/get_album_accolades/{album_id}', response_model=schemas.AlbumsList)
-# def get_album_accolades(album_id: str, 
-#                         n_accolades: int = 10, 
-#                         db: Session = Depends(get_db)):
-#     db_albums = crud.get_album_accolades(db, album_id=album_id)
-#     # print(len(db_albums))
-#     if db_albums is None:
-#         raise HTTPException(status_code=404, detail="No albums that match criteria")
-#     elif len(db_albums) == 0:
-#         raise HTTPException(status_code=404, detail="No albums that match criteria")
-#     x = {'albums': []}
-#     for position, value in enumerate(db_albums):
-#         new_value = {}
-#         for feature in ['rank', 'points', 'publication', 'list']:
-#             new_value[feature] = getattr(value, feature)
-#         x['albums'].append(new_value)
-#     new_dict = []
-#     counting_value = 0
-#     for value in sorted(x['albums'], key=lambda x: x['points'], reverse=True):
-#         new_dict.append(value)
-#         counting_value += 1
-#         if counting_value >= n_accolades:
-#             break
-#     x['albums'] = new_dict
-#     return x
 
 @app.get('/get_album_accolades_multiple_albums/', response_model=schemas.Albums)
 def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
