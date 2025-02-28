@@ -84,7 +84,8 @@ def radio_callback(album_limit=100):
                                                   max_year = st.session_state.max_year,
                                                   genre = show_genres,
                                                   subgenre = show_subgenres)
-            st.session_state.track_info = return_tracks(relevant_albums, album_limit=album_limit)
+            if len(relevant_albums) > 0:
+                st.session_state.track_info = return_tracks(relevant_albums, album_limit=album_limit)
     elif st.session_state.radio_type == 'Mood':
         st.session_state.track_info = get_track_info_mood(mood=st.session_state.mood_selection, genres=st.session_state.mood_genre_selection)
         
