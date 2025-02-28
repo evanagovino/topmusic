@@ -111,7 +111,7 @@ def spotipy_currently_playing(time_sleep=0, max_time_sleep=2):
         return payload
 
     except Exception as e:
-        time_sleep += 1
+        time_sleep += 0.5
         if time_sleep < max_time_sleep:
             spotipy_currently_playing(time_sleep=time_sleep)
 
@@ -184,7 +184,7 @@ def spotify_player():
                         playlist_link = f'https://open.spotify.com/playlist/{st.session_state.playlist_id}'
                         link = f'[Click here to see your created playlist]({playlist_link})'
                         st.markdown(link, unsafe_allow_html=True)
-                payload = spotipy_currently_playing(time_sleep=0, max_time_sleep=2)
+                payload = spotipy_currently_playing(time_sleep=0.25, max_time_sleep=2)
                 if payload:
                     st.image('https://storage.googleapis.com/pr-newsroom-wp/1/2018/11/Spotify_Logo_RGB_Green.png', width=100)
                     st.write('Now Playing:')
