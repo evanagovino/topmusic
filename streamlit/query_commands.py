@@ -232,13 +232,13 @@ def get_relevant_albums(min_year: int,
     base_api = f'{fastapi_url}/get_relevant_albums/?min_year={min_year}&max_year={max_year}'
     if genre:
         for item in genre:
-            if item == 'R&B':
-                item = 'R%26B'
+            item = item.replace('&', '%26')
             base_api += f'&genre={item}'
     else:
         base_api += '&genre='
     if subgenre:
         for item in subgenre:
+            item = item.replace('&', '%26')
             base_api += f'&subgenre={item}'
     else:
         base_api += '&subgenre='
@@ -299,107 +299,113 @@ def get_album_accolades_multiple_albums(album_ids, n_accolades=10, album_limit=5
 
 # @st.cache_data
 def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
-    unique_albums = list(df['album_id'].unique())
-    st.session_state.album_accolades = get_album_accolades_multiple_albums(unique_albums)
-    #print(st.session_state.album_accolades)
-    for position in range(list_start, min(list_end, len(df))):
-        album_key = df['album_id'][position]
-        artist = df['artist'][position]
-        album = df['album'][position]
-        genre = df['genre'][position]
-        subgenre = df['subgenre'][position]
-        year = df['year'][position]
-        image = df['image_url'][position]
-        album_url = df['album_url'][position]
-        col1, col2 = st.columns([1,1.4], gap='large')
-        with col1:
-            st.image(image, use_column_width=True)
-        with col2:
-            st.subheader(f'#{position + 1}')
-            st.subheader(artist)
-            st.subheader(album)
-            if show_subgenres == None:
-                st.subheader(f'Genre: {genre}')
-            else:
-                st.subheader(f'Genre: {subgenre}')
-            st.subheader(year)
-            container = st.expander('Accolades', expanded=False)
-            with container:
-                get_album_accolades(album_key)
-            container = st.expander('Listen', expanded=False)
-            with container:
-                if album_url != '':
-                    components.iframe(album_url, height=400)
+    try:
+        unique_albums = list(df['album_id'].unique())
+        st.session_state.album_accolades = get_album_accolades_multiple_albums(unique_albums)
+        #print(st.session_state.album_accolades)
+        for position in range(list_start, min(list_end, len(df))):
+            album_key = df['album_id'][position]
+            artist = df['artist'][position]
+            album = df['album'][position]
+            genre = df['genre'][position]
+            subgenre = df['subgenre'][position]
+            year = df['year'][position]
+            image = df['image_url'][position]
+            album_url = df['album_url'][position]
+            col1, col2 = st.columns([1,1.4], gap='large')
+            with col1:
+                st.image(image, use_column_width=True)
+            with col2:
+                st.subheader(f'#{position + 1}')
+                st.subheader(artist)
+                st.subheader(album)
+                if show_subgenres == None:
+                    st.subheader(f'Genre: {genre}')
                 else:
-                    st.write('No streaming available for this album :(')
+                    st.subheader(f'Genre: {subgenre}')
+                st.subheader(year)
+                container = st.expander('Accolades', expanded=False)
+                with container:
+                    get_album_accolades(album_key)
+                container = st.expander('Listen', expanded=False)
+                with container:
+                    if album_url != '':
+                        components.iframe(album_url, height=400)
+                    else:
+                        st.write('No streaming available for this album :(')
+    except:
+        st.write('No albums found for the selected parameters :(')
 
 # @st.cache_data
 def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
-    df['count'] = range(len(df))
-    st.session_state.album_accolades = get_album_accolades_multiple_albums(list(df['album_id'].unique()))
-    df = df.groupby(['album_id', 'artist', 'album_name', 'genre', 'subgenre', 'year', 'image_url', 'album_url'])['count'].min().reset_index().sort_values('count')
-    df.index = range(len(df))
-    bigcol1, bigcol2 = st.columns([1,1], gap='large')
-    total_min = min(list_end, len(df))
-    position = 0
-    while (position + 1) < total_min:
-        with bigcol1:
-                album_key = df['album_id'][position]
-                artist = df['artist'][position]
-                album = df['album_name'][position]
-                genre = df['genre'][position]
-                subgenre = df['subgenre'][position]
-                year = df['year'][position]
-                image = df['image_url'][position]
-                album_url = df['album_url'][position]
-                col1, col2 = st.columns([1,1.4], gap='large')
-                with col1:
-                    st.image(image, use_column_width=True)
-                with col2:
-                    st.subheader(artist)
-                    st.subheader(album)
-                    if show_subgenres == None:
-                        st.subheader(f'Genre: {genre}')
-                    else:
-                        st.subheader(f'Genre: {subgenre}')
-                    st.subheader(year)
-                    container = st.expander('Accolades', expanded=False)
-                    with container:
-                        get_album_accolades(album_key)
-                    container = st.expander('Listen', expanded=False)
-                    with container:
-                        if album_url != '':
-                            components.iframe(album_url, height=400)
+    try:
+        df['count'] = range(len(df))
+        st.session_state.album_accolades = get_album_accolades_multiple_albums(list(df['album_id'].unique()))
+        df = df.groupby(['album_id', 'artist', 'album_name', 'genre', 'subgenre', 'year', 'image_url', 'album_url'])['count'].min().reset_index().sort_values('count')
+        df.index = range(len(df))
+        bigcol1, bigcol2 = st.columns([1,1], gap='large')
+        total_min = min(list_end, len(df))
+        position = 0
+        while (position + 1) < total_min:
+            with bigcol1:
+                    album_key = df['album_id'][position]
+                    artist = df['artist'][position]
+                    album = df['album_name'][position]
+                    genre = df['genre'][position]
+                    subgenre = df['subgenre'][position]
+                    year = df['year'][position]
+                    image = df['image_url'][position]
+                    album_url = df['album_url'][position]
+                    col1, col2 = st.columns([1,1.4], gap='large')
+                    with col1:
+                        st.image(image, use_column_width=True)
+                    with col2:
+                        st.subheader(artist)
+                        st.subheader(album)
+                        if show_subgenres == None:
+                            st.subheader(f'Genre: {genre}')
                         else:
-                            st.write('No streaming available for this album :(')
-        with bigcol2:
-                album_key = df['album_id'][position + 1]
-                artist = df['artist'][position + 1]
-                album = df['album_name'][position + 1]
-                genre = df['genre'][position + 1]
-                subgenre = df['subgenre'][position + 1]
-                year = df['year'][position + 1]
-                image = df['image_url'][position + 1]
-                album_url = df['album_url'][position + 1]
-                col1, col2 = st.columns([1,1.4], gap='large')
-                with col1:
-                    st.image(image, use_column_width=True)
-                with col2:
-                    st.subheader(artist)
-                    st.subheader(album)
-                    if show_subgenres == None:
-                        st.subheader(f'Genre: {genre}')
-                    else:
-                        st.subheader(f'Genre: {subgenre}')
-                    st.subheader(year)
-                    container = st.expander('Accolades', expanded=False)
-                    with container:
-                        get_album_accolades(album_key)
-                    container = st.expander('Listen', expanded=False)
-                    with container:
-                        if album_url != '':
-                            components.iframe(album_url, height=400)
+                            st.subheader(f'Genre: {subgenre}')
+                        st.subheader(year)
+                        container = st.expander('Accolades', expanded=False)
+                        with container:
+                            get_album_accolades(album_key)
+                        container = st.expander('Listen', expanded=False)
+                        with container:
+                            if album_url != '':
+                                components.iframe(album_url, height=400)
+                            else:
+                                st.write('No streaming available for this album :(')
+            with bigcol2:
+                    album_key = df['album_id'][position + 1]
+                    artist = df['artist'][position + 1]
+                    album = df['album_name'][position + 1]
+                    genre = df['genre'][position + 1]
+                    subgenre = df['subgenre'][position + 1]
+                    year = df['year'][position + 1]
+                    image = df['image_url'][position + 1]
+                    album_url = df['album_url'][position + 1]
+                    col1, col2 = st.columns([1,1.4], gap='large')
+                    with col1:
+                        st.image(image, use_column_width=True)
+                    with col2:
+                        st.subheader(artist)
+                        st.subheader(album)
+                        if show_subgenres == None:
+                            st.subheader(f'Genre: {genre}')
                         else:
-                            st.write('No streaming available for this album :(')
-        position += 2
+                            st.subheader(f'Genre: {subgenre}')
+                        st.subheader(year)
+                        container = st.expander('Accolades', expanded=False)
+                        with container:
+                            get_album_accolades(album_key)
+                        container = st.expander('Listen', expanded=False)
+                        with container:
+                            if album_url != '':
+                                components.iframe(album_url, height=400)
+                            else:
+                                st.write('No streaming available for this album :(')
+            position += 2
+    except:
+        st.write('No albums found for the selected parameters :(')
 
