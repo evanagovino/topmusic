@@ -90,6 +90,8 @@ class RelevantAlbums(Base):
 
     album_uri = Column(String, primary_key = True)
     album_url = Column(String)
+    album_key = Column(Integer)
+    spotify_deeplink = Column(String)
     image_url = Column(String)
     artist = Column(String)
     album = Column(String)

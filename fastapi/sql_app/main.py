@@ -543,6 +543,7 @@ def get_relevant_albums_new(min_year: int,
                             list: List[str] = Query([None]), 
                             points_weight: float = 0.5,
                             randomize: bool = False,
+                            order_by_recency: bool = False,
                             db: Session = Depends(get_db)
                             ):
     """
@@ -561,8 +562,12 @@ def get_relevant_albums_new(min_year: int,
                              album_uri_required=False
                              )
     new_dict = []
-    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
-        new_dict.append(value[1])
+    if order_by_recency:
+        for value in sorted(x['albums'].items(), key=lambda x: x[1]['album_key'], reverse=True):
+            new_dict.append(value[1])
+    else:
+        for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
+            new_dict.append(value[1])
     x['albums'] = new_dict
     return x
 

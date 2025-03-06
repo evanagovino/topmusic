@@ -74,15 +74,17 @@ def unpack_albums(db_albums, points_weight):
     for position, value in enumerate(db_albums):
         x['albums'][value.album_uri] = {'artist': value.artist,
                                         'album_id': value.album_uri,
+                                        'album_key': value.album_key,
                                         'album_url': value.album_url,
+                                        'album_deeplink': value.spotify_deeplink,
                                         'image_url': value.image_url,
                                         'album': value.album,
                                         'genre': value.genre,
                                         'subgenre': value.subgenre,
                                         'year': value.year,
-                                        'points': value[8],
-                                        'total_points': value[9],
-                                        'points_pct': value[8] / value[9]
+                                        'points': value[10],
+                                        'total_points': value[11],
+                                        'points_pct': value[10] / value[11]
                                         }
     total_points = np.sum(x['albums'][i]['points'] for i in x['albums'])
     total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
