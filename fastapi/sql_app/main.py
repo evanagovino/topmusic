@@ -773,6 +773,34 @@ def get_track_data(track_id: str,
             x[feature] = getattr(value, feature)
     return x
 
+@app.get('/get_album_accolades/', response_model=schemas.AlbumsList)
+def get_album_accolades(album_id: str = Query(None),
+                        n_accolades: int = 10,
+                        db: Session = Depends(get_db)):
+    """
+    Return a dictionary of album accolades given a single album URI
+    """
+    db_albums = crud.get_album_accolades(db, album_id=album_id)
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    x = {'albums': []}
+    for position, value in enumerate(db_albums):
+        new_value = {}
+        for feature in ['rank', 'points', 'publication', 'list']:
+            new_value[feature] = getattr(value, feature)
+        x['albums'].append(new_value)
+    new_dict = []
+    counting_value = 0
+    for value in sorted(x['albums'], key=lambda x: x['points'], reverse=True):
+        new_dict.append(value)
+        counting_value += 1
+        if counting_value >= n_accolades:
+            break
+    x['albums'] = new_dict
+    return x
+    
+        
+
 @app.get('/get_album_accolades_multiple_albums/', response_model=schemas.Albums)
 def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
                                         n_accolades: int = 10,
