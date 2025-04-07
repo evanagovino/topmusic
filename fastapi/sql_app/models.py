@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float
 from sqlalchemy.orm import relationship
 from .database import Base
 
+
 class GenreFeatures(Base):
     __tablename__ = 'genre_track_details'
     __table_args__ = {"schema": "dbt"}
@@ -110,6 +111,15 @@ class ArtistPublications(Base):
 
     artist_id = Column(String, primary_key=True)
     publication_data = Column(String)
+
+class ArtistPoints(Base):
+    __tablename__ = "distinct_artists"
+    __table_args__ = {"schema": "dbt"}
+
+    artist_id = Column(String, primary_key=True)
+    artist = Column(String)
+    points = Column(Float)
+    
 
     
 
