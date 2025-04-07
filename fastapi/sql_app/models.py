@@ -1,6 +1,7 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, Computed, Index
 from sqlalchemy.orm import relationship
 from .database import Base
+
 
 class GenreFeatures(Base):
     __tablename__ = 'genre_track_details'
@@ -110,6 +111,23 @@ class ArtistPublications(Base):
 
     artist_id = Column(String, primary_key=True)
     publication_data = Column(String)
+
+class ArtistPoints(Base):
+    __tablename__ = "distinct_artists"
+    __table_args__ = {"schema": "dbt"}
+
+    artist_id = Column(String, primary_key=True)
+    artist = Column(String)
+    points = Column(Float)
+    # content_tsv = Column(
+    #     TSVectorType("artist", regconfig="english"),
+    #     Computed("to_tsvector('english', \"artist\")", persisted=True))
+
+    # __table_args__ = (
+    #     # Indexing the TSVector column
+    #     Index("idx_artistpoints_content_tsv", content_tsv, postgresql_using="gin"), 
+    # )
+    
 
     
 

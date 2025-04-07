@@ -957,5 +957,17 @@ def return_tracks_from_albums(album_uris: List[str] = Query(['']),
     for track in tracks:
         x['tracks'].append(track)
     return x
+
+@app.get("/get_artists_from_search_string/", response_model=schemas.ArtistsList)
+def get_artists_from_search_string(search_string: str, db: Session = Depends(get_db)):
+    """
+    Return a list of artists given a search string
+    """
+    db_artists = crud.get_relevant_artists(db, search_string)
+    print(len(db_artists))
+    x = {'artists': []}
+    for i in db_artists:
+        x['artists'].append({'name': i.artist, 'id': i.artist_id})
+    return x
     
 

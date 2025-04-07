@@ -78,3 +78,10 @@ def get_artist_track_details(db: Session):
 
 def get_track_data(db: Session, track_id: str):
     return db.query(models.TrackFeatures).filter(models.TrackFeatures.track_id == track_id).all()
+
+def get_relevant_artists(db: Session, search_string: str):
+    tsquery = func.plainto_tsquery(f'{search_string}:*')
+    print('SEARCHSTRING', search_string)
+    print('SEARCHSTRING', f'{search_string}:*')
+    print('TSQUERY', tsquery)
+    return db.query(models.ArtistPoints).filter(models.ArtistPoints.artist.op("@@")(func.to_tsquery(f'{search_string}:*'))).order_by(models.ArtistPoints.points.desc()).limit(5).all()
