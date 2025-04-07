@@ -76,7 +76,8 @@ def _get_tracks_for_albums(db,
                      'subgenre': value[7],
                      'year': value[8],
                      'image_url': value[9],
-                     'album_url': value[10]
+                     'album_url': value[10],
+                     'track_id_spotify_uri': f'spotify:track:{value[2]}'
                      }
         if track_info['album_id'] not in x['albums']:
             x['albums'][track_info['album_id']] = []
@@ -303,6 +304,7 @@ def _get_similar_tracks(track_id: str,
     df['artist_rank'] = df.groupby('artist_id')['weighted_score'].rank(ascending=False)
     df = df[df['artist_rank'] <= 5]
     df['reweighted_score'] = normalize_weights(df['weighted_score'])
+    df['track_id_spotify_uri'] = [f'spotify:track:{i}' for i in df.index]
     request_length = min(request_length, len(df))
     song_selections = np.random.choice(df.index, 
                                        size=request_length, 
