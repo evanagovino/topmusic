@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, Computed, Index
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -119,14 +119,6 @@ class ArtistPoints(Base):
     artist_id = Column(String, primary_key=True)
     artist = Column(String)
     points = Column(Float)
-    # content_tsv = Column(
-    #     TSVectorType("artist", regconfig="english"),
-    #     Computed("to_tsvector('english', \"artist\")", persisted=True))
-
-    # __table_args__ = (
-    #     # Indexing the TSVector column
-    #     Index("idx_artistpoints_content_tsv", content_tsv, postgresql_using="gin"), 
-    # )
     
 
     
