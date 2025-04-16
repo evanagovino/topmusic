@@ -10,6 +10,11 @@ import datetime
 import json
 from decimal import Decimal
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 from ._utils import *
@@ -17,7 +22,10 @@ from .auth import handle_api_key
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Dependency
 def get_db():
