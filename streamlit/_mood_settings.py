@@ -69,10 +69,10 @@ mood_dictionary = {
 ),
     'Chill': MoodSettings(
     # min_valence = 0.6,
-    min_danceability = 0.7,
+    min_danceability = 1.2,
     min_tempo = 90,
     max_tempo = 115,
-    min_popularity = 50,
+    min_popularity = 40,
     default_excluded_genres = ['Country', 'Metal', 'Experimental', 'Classical'],
     default_excluded_subgenres = ['Rap', 'British Rap', 'Reggaeton', 'K-Pop', 'Pop', 'R&B']
 ),

@@ -13,7 +13,7 @@ from decimal import Decimal
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 from ._utils import *
-
+from .auth import handle_api_key
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -848,20 +848,20 @@ def get_tracks_by_features(
                         #    included_subgenres: List[str] = Query([None]),
                            excluded_subgenres: List[str] = Query(['']),
                            excluded_time_signatures: List[int] = Query([0]),
-                           min_danceability: float = 0, 
-                           max_danceability: float = 1, 
-                           min_energy: float = 0, 
-                           max_energy: float = 1, 
-                           min_speechiness: float = 0, 
-                           max_speechiness: float = 1, 
-                           min_acousticness: float = 0, 
-                           max_acousticness: float = 1, 
-                           min_instrumentalness: float = 0, 
-                           max_instrumentalness: float = 1, 
-                           min_liveness: float = 0, 
-                           max_liveness: float = 1, 
-                           min_valence: float = 0, 
-                           max_valence: float = 1, 
+                           min_danceability: float = -3, 
+                           max_danceability: float = 3, 
+                           min_energy: float = -3, 
+                           max_energy: float = 3, 
+                           min_speechiness: float = -3, 
+                           max_speechiness: float = 3, 
+                           min_acousticness: float = -3, 
+                           max_acousticness: float = 3, 
+                           min_instrumentalness: float = -3, 
+                           max_instrumentalness: float = 3, 
+                           min_liveness: float = -3, 
+                           max_liveness: float = 3, 
+                           min_valence: float = -3, 
+                           max_valence: float = 3, 
                            min_tempo: float = 50, 
                            max_tempo: float = 170,
                            min_popularity: float = 0,
@@ -969,5 +969,8 @@ def get_artists_from_search_string(search_string: str, db: Session = Depends(get
     for i in db_artists:
         x['artists'].append({'name': i.artist, 'id': i.artist_id})
     return x
-    
+
+@app.get("/test_api_key", dependencies=[Depends(handle_api_key)])
+def test_api_key():
+    return True
 
