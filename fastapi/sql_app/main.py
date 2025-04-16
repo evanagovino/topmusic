@@ -606,7 +606,7 @@ def get_recommended_tracks(artist_id: str = None,
     elif genre:
         x = pull_relevant_albums(db, 
                                  min_year=2000, 
-                                 max_year=2024, 
+                                 max_year=2025, 
                                  genre=[genre], 
                                  subgenre=[''], 
                                  publication=[''], 
@@ -627,6 +627,7 @@ def get_recommended_tracks(artist_id: str = None,
                                weighted_rank=weighted_rank,
                                album_limit=100
                                )
+        np.random.shuffle(tracks)
         x = {'tracks': []}
         for track in tracks:
             x['tracks'].append(track)
