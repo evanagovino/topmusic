@@ -15,7 +15,7 @@ def pull_genre_payload() -> dict:
     """
     Returns dictionary of genres, with associated subgenres
     """
-    genres_raw = requests.get(f'{fastapi_url}/genres/')
+    genres_raw = requests.get(f'{fastapi_url}/web/genres/')
     return genres_raw.json()['genres']
 
 def pull_unique_genres(genres: dict) -> list:
@@ -53,7 +53,7 @@ def pull_artist_payload() -> dict:
     """
     Returns dictionary of artists, with associated Artist IDs (note these are Spotify IDs) 
     """
-    artists_raw = requests.get(f'{fastapi_url}/artists/')
+    artists_raw = requests.get(f'{fastapi_url}/web/artists/')
     return artists_raw.json()['artists']
 
 def pull_unique_artists(artists: dict) -> list:
@@ -78,7 +78,7 @@ def pull_publication_payload() -> dict:
     """
     Returns dictionary of publications, with associated lists
     """
-    publications_raw = requests.get(f'{fastapi_url}/publications/')
+    publications_raw = requests.get(f'{fastapi_url}/web/publications/')
     return publications_raw.json()['publications']
 
 def pull_unique_publications(publications: dict) -> list:
@@ -123,7 +123,7 @@ def retrieve_albums_payload(artist_id: str = None) -> dict:
     Returns payload of albums based on an artist ID
     """
     if artist_id:
-        artists_raw = requests.get(f'{fastapi_url}/albums_for_artist/{artist_id}')
+        artists_raw = requests.get(f'{fastapi_url}/web/albums_for_artist/{artist_id}')
         return artists_raw.json()['albums']
 
 def pull_unique_albums(albums: dict) -> list:
@@ -144,15 +144,15 @@ def retrieve_tracks_payload(artist_id: str = None,
     Returns list of track IDs for a given input
     """
     if album_ids is not None:
-        base_id = f'{fastapi_url}/tracks_for_albums/?'
+        base_id = f'{fastapi_url}/web/tracks_for_albums/?'
         for album in album_ids:
             base_id += f'&album_ids={album}'
         tracks_raw = requests.get(base_id)
     elif album_id is not None:
-        base_id = f'{fastapi_url}/tracks_for_album/{album_id}'
+        base_id = f'{fastapi_url}/web/tracks_for_album/{album_id}'
         tracks_raw = requests.get(base_id)
     elif artist_id is not None:
-        base_id = f'{fastapi_url}/tracks_for_artist/{artist_id}'
+        base_id = f'{fastapi_url}/web/tracks_for_artist/{artist_id}'
         tracks_raw = requests.get(base_id)
     else:
         tracks_raw = None
@@ -176,9 +176,9 @@ def retrieve_popular_tracks(artist_id: str,
     Returns randomized track ID given an artist ID or album ID
     """
     if album_id:
-        tracks_raw = requests.get(f'{fastapi_url}/random_track_from_album/{album_id}')
+        tracks_raw = requests.get(f'{fastapi_url}/web/random_track_from_album/{album_id}')
     else:
-        tracks_raw = requests.get(f'{fastapi_url}/random_track_from_artist/{artist_id}')
+        tracks_raw = requests.get(f'{fastapi_url}/web/random_track_from_artist/{artist_id}')
     track_name = [i for i in tracks_raw.json()['tracks']][0]
     return tracks_raw.json()['tracks'][track_name]['track_id']
 
@@ -196,7 +196,7 @@ def get_track_info(track_id: str,
         duration_min = 60000
     else:
         duration_min = 0
-    base_url = f'{fastapi_url}/get_similar_tracks/{track_id}?restrict_genre={restrict_genre}&request_length={request_length}&duration_min={duration_min}'
+    base_url = f'{fastapi_url}/web/get_similar_tracks/{track_id}?restrict_genre={restrict_genre}&request_length={request_length}&duration_min={duration_min}'
     tracks = requests.get(base_url)
     # df = pd.DataFrame.from_dict(df.json()['tracks'], orient='index')
     df = pd.DataFrame(tracks.json()['tracks'])
@@ -208,7 +208,7 @@ def get_track_info_mood(mood: str,
     """
     Returns dataframe of recommended tracks given mood and list of genres
     """
-    base_url = f'{fastapi_url}/get_tracks_by_features/?'
+    base_url = f'{fastapi_url}/web/get_tracks_by_features/?'
     mood_object = mood_dictionary[mood]
     base_url = add_musical_features_to_base_url(mood_object, base_url)
     mood_object.import_custom_genres(genres)
@@ -229,7 +229,7 @@ def get_relevant_albums(min_year: int,
     """
     Returns dataframe of relevant albums given year, genre, subgenre, publication, and list inputs
     """
-    base_api = f'{fastapi_url}/get_relevant_albums/?min_year={min_year}&max_year={max_year}'
+    base_api = f'{fastapi_url}/web/get_relevant_albums/?min_year={min_year}&max_year={max_year}'
     if genre:
         for item in genre:
             item = item.replace('&', '%26')
@@ -264,7 +264,7 @@ def return_tracks(album_uris,
                   weight_tracks=True,
                   album_limit=500
                   ):
-    base_url = f'{fastapi_url}/return_tracks_from_albums/?'
+    base_url = f'{fastapi_url}/web/return_tracks_from_albums/?'
     for album in album_uris['album_id'][:album_limit]:
         base_url += f'&album_uris={album}'
     base_url += f'&album_limit={album_limit}'
@@ -290,7 +290,7 @@ def get_album_accolades(album_id, n_accolades=10):
 
 @st.cache_data
 def get_album_accolades_multiple_albums(album_ids, n_accolades=10, album_limit=50):
-    base_id = f'{fastapi_url}/get_album_accolades_multiple_albums/?'
+    base_id = f'{fastapi_url}/web/get_album_accolades_multiple_albums/?'
     for album in album_ids[:album_limit]:
         base_id += f'&album_ids={album}'
     accolades = requests.get(base_id)
