@@ -264,7 +264,7 @@ def return_tracks(album_uris,
                   weight_tracks=True,
                   album_limit=500
                   ):
-    base_url = f'{fastapi_url}/web/return_tracks_from_albums/?'
+    base_url = f'{fastapi_url}/app/return_tracks_from_albums/?'
     for album in album_uris['album_id'][:album_limit]:
         base_url += f'&album_uris={album}'
     base_url += f'&album_limit={album_limit}'
