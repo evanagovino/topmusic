@@ -7,6 +7,8 @@ from sklearn.metrics import pairwise
 from decimal import Decimal
 from typing import List
 from sqlalchemy.orm import Session
+import datetime
+import json
 
 def normalize_weights(weights):
     """
