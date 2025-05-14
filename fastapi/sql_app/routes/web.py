@@ -373,7 +373,7 @@ def get_similar_albums(album_id: str,
                        db: Session = Depends(get_db)
                        ):
     """
-    Return a list of similar album IDs to a given album ID by cosine similarity of placement in music publications
+    Return a list of similar album IDs to a given album ID by cosine similarity of placement in music publications and euclidean distance of median musical features
     """
 
     # Get similar albums by publication
