@@ -133,6 +133,15 @@ def unpack_artists(db_artists, features):
     artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
     return artist_df
 
+def generic_unpack(db, features, dictionary_name, id_column) -> pd.DataFrame:
+    x = {dictionary_name: {}}
+    for position, value in enumerate(db):
+        x[dictionary_name][getattr(value, id_column)] = {}
+        for feature in features:
+            feature_clean = feature.split('_')[0]
+            x[dictionary_name][getattr(value, id_column)][feature_clean] = getattr(value, feature)
+    return pd.DataFrame.from_dict(x[dictionary_name], orient='index')
+
 
 def get_track_similarities(track_id: str, 
                            feature_matrix, 
@@ -160,6 +169,18 @@ def get_artist_cosine_similarities(artist_df, artist_location, matrix_values):
     x = {'artists': {}}
     for position, value in enumerate(artist_results):
         x['artists'][value] = float(distance_results[position])
+    return x
+
+def get_album_cosine_similarities(album_df, album_location, matrix_values):
+    """
+    Return cosine similarities for a given input given a dataframe.
+    """
+    distances = pairwise.cosine_similarity(matrix_values)
+    distance_results = np.sort(distances[album_location])[::-1]
+    album_results = album_df.index[np.argsort(distances[album_location])][::-1]
+    x = {'albums': {}}
+    for position, value in enumerate(album_results):
+        x['albums'][value] = float(distance_results[position])
     return x
 
 def get_euclidean_distances(df, input, dict_name):
@@ -331,11 +352,11 @@ def _get_similar_genres(genre: str,
                                    dict_name='genres'
                                    )
 
-def _get_similar_artists(artist_id: str,
-                         features: list,
-                         unskew_features: bool,
-                         db
-                         ):
+def _get_similar_artists_by_track_details(artist_id: str,
+                                         features: list,
+                                         unskew_features: bool,
+                                         db
+                                         ):
     features = unskew_features_function(features, unskew_features)
     db_artists = crud.get_artist_track_details(db)
     artist_df = unpack_artists(db_artists, features)
@@ -346,6 +367,82 @@ def _get_similar_artists(artist_id: str,
                                    input=artist_id,
                                    dict_name='artists'
                                    )
+
+def _get_similar_albums_by_track_details(album_id: str,
+                                         features: list,
+                                         restrict_genre: bool,
+                                         unskew_features: bool,
+                                         db
+                                         ):
+    features = unskew_features_function(features, unskew_features)
+    db_album_data = crud.get_tracks_for_album(db, album_id=album_id)
+    if len(db_album_data) == 0:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    genre = db_album_data[0].genre
+    if restrict_genre:
+        db_albums = crud.get_album_track_details(db, genre=genre)
+    else:
+        db_albums = crud.get_album_track_details(db)
+    album_df = generic_unpack(db_albums, features, 'albums', 'album_id')
+    return get_euclidean_distances(df=album_df,
+                                   input=album_id,
+                                   dict_name='albums'
+                                   )
+
+def _get_similar_artists_by_genre(artist_id: str,
+                                  db
+                                  ):
+    db_albums = crud.get_similar_artists_by_genre(db)
+    x = {'artists': {}}
+    for position, value in enumerate(db_albums):
+        x['artists'][value.artist_id] = value.genre_data
+    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
+    try:
+        artist_location = np.where(artist_df.index == artist_id)[0][0]
+    except:
+        raise HTTPException(status_code=404, detail="No artists that match criteria")
+    matrix_values = artist_df.apply(pd.Series)
+    x = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
+    return x
+
+def _get_similar_artists_by_publication(artist_id: str,
+                                        db
+                                        ):
+    db_albums = crud.get_similar_artists_by_publication(db)
+    x = {'artists': {}}
+    for position, value in enumerate(db_albums):
+        x['artists'][value.artist_id] = value.publication_data
+    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
+    try:
+        artist_location = np.where(artist_df.index == artist_id)[0][0]
+    except:
+        raise HTTPException(status_code=404, detail="No artists that match criteria")
+    matrix_values = artist_df.apply(pd.Series)
+    return get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
+
+def _get_similar_albums_by_publication(album_id: str,
+                                        restrict_genre: bool,
+                                        db
+                                        ):
+    db_album_data = crud.get_tracks_for_album(db, album_id=album_id)
+    if len(db_album_data) == 0:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    genre = db_album_data[0].genre
+    if restrict_genre:
+        db_albums = crud.get_similar_albums_by_publication(db, genre=genre)
+    else:
+        db_albums = crud.get_similar_albums_by_publication(db)
+    x = {'albums': {}}
+    for position, value in enumerate(db_albums):
+        x['albums'][value.album_id] = value.publication_data
+    album_df = pd.DataFrame.from_dict(x['albums'], orient='index')
+    try:
+        album_location = np.where(album_df.index == album_id)[0][0]
+    except:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    matrix_values = album_df.apply(pd.Series)
+    x = get_album_cosine_similarities(album_df, album_location, matrix_values)
+    return x
 
 def _get_similar_tracks_by_euclidean_distance(track_id: str,
                                               genre: str,
