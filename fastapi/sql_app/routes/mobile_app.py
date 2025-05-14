@@ -47,8 +47,8 @@ def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_d
         x['artists'].append({'name': i.artist, 'id': i.artist_id})
     return x
 
-@router.get("/get_relevant_albums_new/", response_model=schemas.AlbumsList)
-def get_relevant_albums_new(min_year: int, 
+@router.get("/get_relevant_albums/", response_model=schemas.AlbumsList)
+def get_relevant_albums(min_year: int, 
                             max_year: int, 
                             genre: List[str] = Query([None]), 
                             subgenre: List[str] = Query([None]), 

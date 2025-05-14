@@ -9,6 +9,9 @@ def get_unique_genres(db: Session):
 def get_unique_publications(db: Session):
     return db.query(models.RelevantAlbums.publication, models.RelevantAlbums.list).distinct().all()
 
+def get_unique_artists_albums(db: Session):
+    return db.query(models.TrackFeatures.artist, models.TrackFeatures.artist_id, models.TrackFeatures.album_name, models.TrackFeatures.album_id).distinct().all()
+
 def get_artist_name_ids(db: Session):
     return db.query(models.TrackFeatures.artist, models.TrackFeatures.artist_id).distinct().all()
 
@@ -67,14 +70,29 @@ def get_album_accolades(db: Session, album_id: str):
 def get_album_accolades_multiple_albums(db: Session, album_ids: list):
     return db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_uri.in_(album_ids)).all()
 
-def get_similar_artists(db: Session):
+def get_similar_artists_by_publication(db: Session):
     return db.query(models.ArtistPublications).all()
+
+def get_similar_artists_by_genre(db: Session):
+    return db.query(models.ArtistGenres).all()
 
 def get_similar_genres(db: Session):
     return db.query(models.GenreFeatures).all()
 
+def get_similar_albums_by_publication(db: Session, genre: str = None):
+    if genre:
+        return db.query(models.AlbumPublications).filter(models.AlbumPublications.genre == genre).all()
+    else:
+        return db.query(models.AlbumPublications).all()
+
 def get_artist_track_details(db: Session):
     return db.query(models.ArtistFeatures).all()
+
+def get_album_track_details(db: Session, genre: str = None):
+    if genre:
+        return db.query(models.AlbumFeatures).filter(models.AlbumFeatures.genre == genre).all()
+    else:
+        return db.query(models.AlbumFeatures).all()
 
 def get_track_data(db: Session, track_id: str):
     return db.query(models.TrackFeatures).filter(models.TrackFeatures.track_id == track_id).all()

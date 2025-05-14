@@ -1,7 +1,7 @@
 from ..database import get_db
 from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
-from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, get_artist_cosine_similarities, _get_similar_genres, _get_similar_artists, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums
+from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication
 from sqlalchemy.orm import Session
 import numpy as np
 from typing import List
@@ -43,6 +43,18 @@ def get_distinct_artists(db: Session = Depends(get_db)):
     x = {'artists': {}}
     for i in db_artist:
         x['artists'][i.artist] = i.artist_id
+    return x
+
+@router.get("/artists_albums/", response_model=schemas.AlbumsList)
+def get_distinct_artists_albums(db: Session = Depends(get_db)):
+    db_artist_albums = crud.get_unique_artists_albums(db)
+    x = {'albums': []}
+    for i in db_artist_albums:
+        x['albums'].append({'album_id': i.album_id,
+                            'album_name': i.album_name,
+                            'artist': i.artist,
+                            'artist_id': i.artist_id
+                            })
     return x
 
 @router.get("/albums_for_artist/{artist_id}", response_model=schemas.Albums)
@@ -185,8 +197,8 @@ def get_relevant_albums(min_year: int,
                                 album_uri_required=False
                                 )
 
-@router.get("/get_similar_artists/{artist_id}", response_model=schemas.Artists)
-def get_similar_artists(artist_id: str, 
+@router.get("/get_similar_artists_by_publication/{artist_id}", response_model=schemas.Artists)
+def get_similar_artists_by_publication(artist_id: str, 
                         db: Session = Depends(get_db)
                         ):
     """
@@ -194,18 +206,81 @@ def get_similar_artists(artist_id: str,
 
     Not used as an endpoint, but potentially useful in data exploration
     """
-    db_albums = crud.get_similar_artists(db)
-    x = {'artists': {}}
-    for position, value in enumerate(db_albums):
-        x['artists'][value.artist_id] = value.publication_data
-    artist_df = pd.DataFrame.from_dict(x['artists'], orient='index')
-    try:
-        artist_location = np.where(artist_df.index == artist_id)[0][0]
-    except:
-        raise HTTPException(status_code=404, detail="No artists that match criteria")
-    matrix_values = artist_df.apply(pd.Series)
-    x = get_artist_cosine_similarities(artist_df, artist_location, matrix_values)
+    return _get_similar_artists_by_publication(artist_id, db)
+
+@router.get("/get_similar_albums_by_publication/{album_id}", response_model=schemas.Albums)
+def get_similar_albums_by_publication(album_id: str, 
+                                      restrict_genre: bool = True,
+                                      db: Session = Depends(get_db)
+                                      ):
+    """
+    Return a list of similar albums to a given album ID by cosine similarity of placement in music publications
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    return _get_similar_albums_by_publication(album_id, restrict_genre, db)
+
+@router.get("/get_similar_artists/{artist_id}", response_model=schemas.ArtistsList)
+def get_similar_artists(artist_id: str,
+                        n_artists: int = 10,
+                        features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']),
+                        unskew_features: bool = True,
+                       db: Session = Depends(get_db)
+                       ):
+    """
+    Return a list of similar artists to a given artist ID by cosine similarity of genres for albums listed in music publications
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    # Similar Artists by Genre
+    similar_artists_by_genre_raw = _get_similar_artists_by_genre(artist_id, db)
+    similar_artists_by_genre = pd.DataFrame.from_dict(similar_artists_by_genre_raw['artists'], orient='index')
+    similar_artists_by_genre.columns = ['genre_similarity']
+
+    # Similar Artists by Publication
+    similar_artists_by_publication_raw = _get_similar_artists_by_publication(artist_id, db)
+    similar_artists_by_publication = pd.DataFrame.from_dict(similar_artists_by_publication_raw['artists'], orient='index')
+    similar_artists_by_publication.columns = ['publication_similarity']
+    # Similar Artists by Track Details
+    similar_artists_by_track_details_raw = _get_similar_artists_by_track_details(artist_id, features, unskew_features, db)
+    similar_artists_by_track_details = pd.DataFrame.from_dict(similar_artists_by_track_details_raw['artists'], orient='index')
+    similar_artists_by_track_details.columns = ['track_details_similarity']
+
+    # Combine all dataframes
+    combined_similar_artists = pd.concat([similar_artists_by_genre, similar_artists_by_publication, similar_artists_by_track_details], axis=1)
+    combined_similar_artists = similar_artists_by_genre.merge(similar_artists_by_publication, left_index=True, right_index=True).merge(similar_artists_by_track_details, left_index=True, right_index=True)
+    combined_similar_artists = combined_similar_artists.reset_index().rename(columns={'index': 'artist_id'})
+
+    # Normalize the similarity scores
+
+    max_value = combined_similar_artists['track_details_similarity'].max()
+    min_value = combined_similar_artists['track_details_similarity'].min()
+    combined_similar_artists['track_details_similarity'] = (combined_similar_artists['track_details_similarity'] - min_value) / (max_value - min_value)
+    combined_similar_artists['estimated_total_score'] = combined_similar_artists['genre_similarity'] * ((combined_similar_artists['publication_similarity'] * 0.5) + (combined_similar_artists['track_details_similarity'] * 0.5))
+    combined_similar_artists = combined_similar_artists.sort_values(by='estimated_total_score', ascending=False).reset_index(drop=True)
+    combined_similar_artists = combined_similar_artists.head(n_artists)
+    x = {'artists': []}
+    for index, row in combined_similar_artists.iterrows():
+        x['artists'].append({
+            'artist_id': row['artist_id'], 
+            'track_details_similarity': row['track_details_similarity'],
+            'publication_similarity': row['publication_similarity'],
+            'genre_similarity': row['genre_similarity'],
+            'estimated_total_score': row['estimated_total_score']
+        })
     return x
+
+@router.get("/get_similar_artists_by_genre/{artist_id}", response_model=schemas.Artists)
+def get_similar_artists_by_genre(artist_id: str,
+                                 db: Session = Depends(get_db)
+                                 ):
+    """
+    Return a list of similar artists to a given artist ID by cosine similarity of genres for albums listed in music publications
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    return _get_similar_artists_by_genre(artist_id=artist_id,
+                                         db=db)
 
 @router.get("/get_similar_genres/{genre}", response_model=schemas.Genres)
 def get_similar_genres(genre: str, 
@@ -264,11 +339,92 @@ def get_similar_artists_by_track_details(artist_id: str,
 
     Not used as an endpoint, but potentially useful in data exploration
     """
-    return _get_similar_artists(artist_id=artist_id,
+    return _get_similar_artists_by_track_details(artist_id=artist_id,
                                 features=features,
                                 unskew_features=unskew_features,
                                 db=db
                                 )
+
+@router.get("/get_similar_albums_by_track_details/{album_id}", response_model=schemas.Albums)
+def get_similar_albums_by_track_details(album_id: str, 
+                                         features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']),
+                                         restrict_genre: bool = True,
+                                         unskew_features: bool = True, 
+                                         db: Session = Depends(get_db)
+                                         ):
+    """
+    Return a list of similar artist IDs to a given artist ID by euclidean distance of median musical features for each artist
+
+    Not used as an endpoint, but potentially useful in data exploration
+    """
+    return _get_similar_albums_by_track_details(album_id=album_id,
+                                                features=features,
+                                                restrict_genre=restrict_genre,
+                                                unskew_features=unskew_features,
+                                                db=db
+                                                )
+
+@router.get("/get_similar_albums/{album_id}", response_model=schemas.AlbumsList)
+def get_similar_albums(album_id: str,
+                       restrict_genre: bool = True,
+                       features: List[str] = Query(['danceability', 'energy', 'instrumentalness', 'valence', 'tempo']),
+                       unskew_features: bool = True,
+                       n_albums: int = 10,
+                       db: Session = Depends(get_db)
+                       ):
+    """
+    Return a list of similar album IDs to a given album ID by cosine similarity of placement in music publications and euclidean distance of median musical features
+    """
+
+    # Get similar albums by publication
+    similar_albums_by_publication_raw = _get_similar_albums_by_publication(album_id, restrict_genre=restrict_genre, db=db)
+    similar_albums_by_publication = pd.DataFrame.from_dict(similar_albums_by_publication_raw['albums'], orient='index')
+    similar_albums_by_publication.columns = ['publication_similarity']
+
+    # Get similar albums by track details
+    similar_albums_by_track_details_raw = _get_similar_albums_by_track_details(album_id, features=features, restrict_genre=restrict_genre, unskew_features=unskew_features, db=db)
+    similar_albums_by_track_details = pd.DataFrame.from_dict(similar_albums_by_track_details_raw['albums'], orient='index')
+    similar_albums_by_track_details.columns = ['track_details_similarity']
+
+    # Combine the two lists
+    combined_similar_albums = similar_albums_by_publication.merge(similar_albums_by_track_details, left_index=True, right_index=True)
+    combined_similar_albums = combined_similar_albums.reset_index().rename(columns={'index': 'album_id'})
+
+    # Normalize the similarity scores
+    combined_similar_albums['track_details_similarity'] = combined_similar_albums['track_details_similarity'].max() - combined_similar_albums['track_details_similarity']
+    max_value = combined_similar_albums['track_details_similarity'].max()
+    min_value = combined_similar_albums['track_details_similarity'].min()
+    combined_similar_albums['track_details_similarity'] = (combined_similar_albums['track_details_similarity'] - min_value) / (max_value - min_value)
+    combined_similar_albums['estimated_total_score'] = (combined_similar_albums['track_details_similarity'] * 0.5) + (combined_similar_albums['publication_similarity'] * 0.5)
+    combined_similar_albums = combined_similar_albums.sort_values(by='estimated_total_score', ascending=False).reset_index(drop=True)
+    combined_similar_albums = combined_similar_albums.head(n_albums)
+
+    # Get Album Info
+    db_albums = crud.get_album_info(db=db,
+                                    album_uris=list(combined_similar_albums['album_id']))
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+
+    x = {'albums': []}
+    for album in db_albums:
+        x['albums'].append({
+            'album_id': album.album_uri, 
+            'album_name': album.album,
+            'artist': album.artist,
+            'image_url': album.image_url,
+            'album_url': album.album_url,
+            'track_details_similarity': combined_similar_albums[combined_similar_albums['album_id'] == album.album_uri]['track_details_similarity'].values[0],
+            'publication_similarity': combined_similar_albums[combined_similar_albums['album_id'] == album.album_uri]['publication_similarity'].values[0],
+            'estimated_total_score': combined_similar_albums[combined_similar_albums['album_id'] == album.album_uri]['estimated_total_score'].values[0]
+        })
+    # Return the combined list
+    x['albums'] = sorted(x['albums'], key=lambda x: x['estimated_total_score'], reverse=True)
+    return x
+    
+    
+    
+    
+
 
 @router.get('/get_similar_tracks/{track_id}', response_model=schemas.TracksList)
 def get_similar_tracks(track_id: str, 
