@@ -409,7 +409,7 @@ def get_similar_albums(album_id: str,
     for album in db_albums:
         x['albums'].append({
             'album_id': album.album_uri, 
-            'album_name': album.album,
+            'album': album.album,
             'artist': album.artist,
             'image_url': album.image_url,
             'album_url': album.album_url,
