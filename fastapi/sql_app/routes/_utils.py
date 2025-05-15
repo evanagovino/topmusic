@@ -554,10 +554,10 @@ def _get_similar_tracks(track_id: str,
         df = df.merge(df_genre, left_on='genre', right_index=True)
     print('Got Similar Genres For Track', datetime.datetime.now())
     #Get Similar Artists For Track
-    x_artist = _get_similar_artists(artist_id=artist_id,
-                                    features=features,
-                                    unskew_features=unskew_features,
-                                    db=db)
+    x_artist = _get_similar_artists_by_track_details(artist_id=artist_id,
+                                                     features=features,
+                                                     unskew_features=unskew_features,
+                                                     db=db)
     df_artist = pd.DataFrame.from_dict(x_artist['artists'], orient='index')
     df_artist.columns = ['artist_euclidean_distance']
     df = df.merge(df_artist, left_on='artist_id', right_index=True)
