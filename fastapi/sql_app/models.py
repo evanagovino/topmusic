@@ -2,6 +2,25 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float
 from sqlalchemy.orm import relationship
 from .database import Base
 
+class FctAlbums(Base):
+    __tablename__ = 'fct_albums'
+    __table_args__ = {"schema": "dbt"}
+
+    album_id = Column(Integer, primary_key=True)
+    artist = Column(String)
+    album = Column(String)
+    genre = Column(String)
+    subgenre = Column(String)
+    eligible_points = Column(Integer)
+    album_points = Column(Integer)
+    album_points_percentage = Column(Float)
+    publication = Column(String)
+    list = Column(String)
+    year = Column(Integer)
+    rank = Column(Integer)
+    spotify_deeplink = Column(String)
+    
+
 
 class GenreFeatures(Base):
     __tablename__ = 'genre_track_details'
@@ -127,6 +146,26 @@ class RelevantAlbums(Base):
     year = Column(Integer)
     points = Column(Integer)
     total_points = Column(Integer)
+
+class RelevantAlbumsNew(Base):
+    __tablename__ = "dim_music_lists"
+    __table_args__ = {"schema": "dbt"}
+
+    year = Column(Integer)
+    album_key = Column(Integer, primary_key=True)
+    artist = Column(String)
+    album = Column(String)
+    publication = Column(String)
+    list = Column(String)
+    genre = Column(String)
+    subgenre = Column(String)
+    rank = Column(String)
+    points = Column(Integer)
+    total_points = Column(Integer)
+    image_url = Column(String)
+    apple_music_album_id = Column(String)
+    apple_music_album_url = Column(String)
+    spotify_album_uri = Column(String)
 
 class ArtistPublications(Base):
     __tablename__ = "artist_publication_data"
