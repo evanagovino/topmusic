@@ -103,6 +103,36 @@ def unpack_albums(db_albums, points_weight):
     x['albums'] = new_dict
     return x
 
+def unpack_albums_new(db_albums, points_weight):
+    """
+    Unpack a payload of albums into a dataframe, given a weight of total points vs. points pct to order them by
+    """    
+    x = {'albums': {}}
+    for position, value in enumerate(db_albums):
+        x['albums'][value.album_key] = {'year': value.year,
+                                        'album_key': value.album_key,
+                                        'artist': value.artist,
+                                        'album': value.album,
+                                        'genre': value.genre,
+                                        'subgenre': value.subgenre,
+                                        'apple_music_album_id': value.apple_music_album_id,
+                                        'apple_music_album_url': value.apple_music_album_url,
+                                        'spotify_album_uri': value.spotify_album_uri,
+                                        'image_url': value.image_url,
+                                        'points': value[10],
+                                        'total_points': value[11],
+                                        'points_pct': value[10] / value[11]
+                                        }
+    total_points = np.sum(x['albums'][i]['points'] for i in x['albums'])
+    total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
+    for value in x['albums']:
+        x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
+    new_dict = {}
+    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
+        new_dict[value[0]] = value[1]
+    x['albums'] = new_dict
+    return x
+
 def unpack_genres(db_genres, features):
     """
     Unpack a payload of genres into a dataframe, given a set of features.
@@ -241,6 +271,28 @@ def pull_relevant_albums(db,
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     return unpack_albums(db_albums, points_weight)
+
+def pull_relevant_albums_new(db, 
+                             min_year, 
+                             max_year, 
+                             genre, 
+                             subgenre, 
+                             publication, 
+                             list,
+                             points_weight,
+                             album_uri_required):
+    db_albums = crud.get_relevant_albums_new(db, 
+                                             min_year=min_year, 
+                                             max_year=max_year, 
+                                             genre=genre, 
+                                             subgenre=subgenre, 
+                                             publication=publication, 
+                                             list=list,
+                                             album_uri_required=album_uri_required
+                                             )
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    return unpack_albums_new(db_albums, points_weight)
     
 
 def _get_tracks_for_albums(db, 
