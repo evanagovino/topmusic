@@ -3,7 +3,7 @@ from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
-from ._utils import pull_relevant_albums_new, unpack_albums
+from ._utils import pull_relevant_albums_new
 import numpy as np
 import json
 
@@ -45,4 +45,28 @@ def get_relevant_albums(min_year: int,
         for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True)[:album_limit]:
             new_dict.append(value[1])
     x['albums'] = new_dict
+    return x
+
+@router.get("/get_similar_albums/", response_model=schemas.AlbumsList)
+def get_similar_albums(album_key: str, 
+                      publication_weight: float = 0.7,
+                      num_results: int = 10,
+                      db: Session = Depends(get_db)):
+    x = {}
+    x['albums'] = []
+    results = crud.get_similar_albums(db=db, album_key=album_key, publication_weight=publication_weight, num_results=num_results)
+    for value in results:
+        x['albums'].append({
+            'album_key': value.album_key,
+            'artist': value.artist,
+            'album': value.album,
+            'genre': value.genre,
+            'subgenre': value.subgenre,
+            'image_url': value.image_url,
+            'spotify_album_id': value.spotify_album_id,
+            'apple_music_album_id': value.apple_music_album_id,
+            'apple_music_url': value.apple_music_url,
+            'mood_distance': value.mood_distance,
+            'publication_distance': value.publication_distance
+        })
     return x
