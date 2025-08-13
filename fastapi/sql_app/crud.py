@@ -7,7 +7,7 @@ def get_unique_genres(db: Session):
     return db.query(models.TrackFeatures.genre, models.TrackFeatures.subgenre).distinct().all()
 
 def get_unique_genres_new(db: Session):
-    return db.query(models.RelevantAlbumsNew.genre, models.RelevantAlbumsNew.subgenre).distinct().all()
+    return db.query(models.RelevantAlbumsNew.genre, models.RelevantAlbumsNew.subgenre).distinct().order_by(models.RelevantAlbumsNew.genre, models.RelevantAlbumsNew.subgenre).all()
 
 def get_unique_publications(db: Session):
     return db.query(models.RelevantAlbums.publication, models.RelevantAlbums.list).distinct().all()
@@ -102,6 +102,9 @@ def get_album_info(db: Session, album_uris: list):
 
 def get_album_accolades(db: Session, album_id: str):
     return db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_uri == album_id).all()
+
+def get_album_accolades_new(db: Session, album_id: str):
+    return db.query(models.RelevantAlbumsNew.album_key, models.RelevantAlbumsNew.rank, models.RelevantAlbumsNew.points, models.RelevantAlbumsNew.publication, models.RelevantAlbumsNew.list).filter(models.RelevantAlbumsNew.album_key == album_id).all()
 
 def get_album_accolades_multiple_albums(db: Session, album_ids: list):
     return db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_uri.in_(album_ids)).all()
