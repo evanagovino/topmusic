@@ -164,6 +164,78 @@ def get_similar_albums(db: Session, album_key: str, publication_weight: float, n
     """)
     return db.execute(query).fetchall()
 
+def get_similar_artists(db: Session, artist_id: str, genre_weight: float, publication_weight: float, num_results: int):
+    query = text(f"""
+    SELECT 
+        s.artist_id,
+        s.artist_name,
+        s.mood_vector <-> target.mood_vector AS mood_distance,
+        s.publication_vector <=> target.publication_vector AS publication_distance,
+        s.genre_vector <=> target.genre_vector genre_distance,
+        (s.genre_vector <=> target.genre_vector) * {genre_weight} + (s.publication_vector <-> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1 - genre_weight - publication_weight} AS total_distance
+        FROM dbt.vector_artists s
+        CROSS JOIN (
+        SELECT mood_vector, publication_vector, genre_vector
+        FROM dbt.vector_artists
+        WHERE artist_id = '{artist_id}'
+        ) target
+        ORDER BY (s.genre_vector <=> target.genre_vector) * {genre_weight} + (s.publication_vector <-> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1 - genre_weight - publication_weight}
+        LIMIT {num_results};
+    """)
+    return db.execute(query).fetchall()
+
+def get_similar_tracks_from_similar_artists(db: Session, artist_id: str, genre_weight: float, publication_weight: float, num_results: int):
+    query = text(f"""
+    WITH similar_artists AS (
+        SELECT 
+        s.artist_id,
+        s.artist_name,
+        s.mood_vector <-> target.mood_vector AS mood_distance,
+        s.publication_vector <=> target.publication_vector AS publication_distance,
+        s.genre_vector <=> target.genre_vector genre_distance,
+        (s.genre_vector <=> target.genre_vector) * {genre_weight} + (s.publication_vector <-> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1 - genre_weight - publication_weight} AS total_distance
+        FROM dbt.vector_artists s
+        CROSS JOIN (
+        SELECT mood_vector, publication_vector, genre_vector
+        FROM dbt.vector_artists
+        WHERE artist_id = '{artist_id}'
+        ) target
+        ORDER BY (s.genre_vector <=> target.genre_vector) * {genre_weight} + (s.publication_vector <-> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1 - genre_weight - publication_weight}
+        LIMIT {num_results}
+        )
+        SELECT
+            DISTINCT
+                similar_artists.artist_id,
+                similar_artists.artist_name,
+                similar_artists.total_distance,
+                fct_tracks.apple_music_album_id,
+                fct_tracks.apple_music_album_name,
+                fct_tracks.apple_music_track_id,
+                fct_tracks.apple_music_album_url,
+                fct_tracks.genre,
+                fct_tracks.subgenre,
+                fct_tracks.track_popularity,
+                fct_tracks.image_url,
+                fct_tracks.year,
+                fct_tracks.duration_ms
+        FROM
+            similar_artists
+        JOIN
+            dbt.fct_apple_music_artists
+        ON
+            similar_artists.artist_id = fct_apple_music_artists.artist_id
+        JOIN
+            dbt.fct_tracks
+        ON
+            fct_apple_music_artists.album_id = fct_tracks.apple_music_album_id
+        WHERE
+            fct_tracks.apple_music_track_id IS NOT NULL
+        AND
+            fct_tracks.duration_ms >= 60000 AND fct_tracks.duration_ms <= 600000
+    """)
+    return db.execute(query).fetchall()
+
+
 def get_album_info_new(db: Session, album_keys: list, apple_music_required: bool):
     base_query = db.query(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri, func.sum(models.FctTracks.album_points), func.avg(models.FctTracks.eligible_points)).filter(models.FctTracks.album_key.in_(album_keys))
     if apple_music_required:
