@@ -1,14 +1,16 @@
 from .. import crud
 from ..database import get_db
-from fastapi import HTTPException, Query, Depends
+from fastapi import HTTPException, Query, Depends, Header
 import numpy as np
 import pandas as pd
 from sklearn.metrics import pairwise
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 import datetime
 import json
+import os
+import jwt
 
 def normalize_weights(weights):
     """
@@ -735,3 +737,35 @@ def _get_similar_tracks(track_id: str,
     final_x['tracks'] = json.loads(df.to_json(orient='records'))
     print('Finish Job', datetime.datetime.now())
     return final_x
+
+# Add this function after the router definition
+def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """Verify API key from header"""
+    expected_api_key = os.getenv('API_KEY')  # Set this environment variable
+    if not expected_api_key:
+        raise HTTPException(status_code=500, detail="API key not configured")
+    if x_api_key != expected_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return x_api_key
+
+def _get_apple_music_auth_header(api_key: str):
+    ALG = os.getenv('APPLE_ALG')
+    KEY_ID = os.getenv('APPLE_KEY_ID')
+    TEAM_ID = os.getenv('APPLE_TEAM_ID')
+    SECRET = os.getenv('APPLE_SECRET')
+    time_now = datetime.datetime.now()
+    time_expired = datetime.datetime.now() + datetime.timedelta(hours=12)
+
+    headers = {
+        "alg": ALG,
+        "kid": KEY_ID
+    }
+
+    payload = {
+        'iss': TEAM_ID,
+        'exp': int(time_expired.strftime("%s")),
+        'iat': int(time_now.strftime("%s"))
+    }
+
+    encoded_heading = jwt.encode(payload, SECRET, algorithm=ALG, headers=headers)
+    return encoded_heading

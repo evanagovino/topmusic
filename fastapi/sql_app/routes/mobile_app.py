@@ -3,7 +3,7 @@ from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
-from ._utils import get_random_track, _get_similar_tracks, pull_relevant_albums, unpack_albums, return_tracks
+from ._utils import get_random_track, _get_similar_tracks, pull_relevant_albums, unpack_albums, return_tracks, verify_api_key, _get_apple_music_auth_header
 import numpy as np
 import json
 
@@ -219,6 +219,11 @@ def get_artists_from_search_string(search_string: str, db: Session = Depends(get
     for i in db_artists:
         x['artists'].append({'name': i.artist, 'id': i.artist_id})
     return x
+
+@router.get("/get_apple_music_auth_header/")
+def get_apple_music_auth_header(api_key: str = Depends(verify_api_key)):
+    return _get_apple_music_auth_header(api_key)
+
 
 
 
