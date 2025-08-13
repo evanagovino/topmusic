@@ -9,6 +9,34 @@ import json
 
 router = APIRouter(prefix="/v2", tags=["v2"])
 
+@router.get("/genres/", response_model=schemas.GenresList)
+def get_distinct_genres(db: Session = Depends(get_db)):
+    db_genre = crud.get_unique_genres_new(db)
+    x = {'genres': []}
+    for i in db_genre:
+        genre = i[0]
+        subgenre = i[1]
+        genre_not_present = True
+        for value in x['genres']:
+            if value['name'] == genre:
+                if subgenre in value['subgenres']:
+                    pass
+                else:
+                    value['subgenres'].append(subgenre)
+                genre_not_present = False
+                continue
+        if genre_not_present:
+            x['genres'].append({'name': genre, 'subgenres': [subgenre]})
+    return x
+
+@router.get("/artists/", response_model=schemas.ArtistsList)
+def get_distinct_artists(db: Session = Depends(get_db)):
+    db_artist = crud.get_artist_name_ids_new(db)
+    x = {'artists': []}
+    for i in db_artist:
+        x['artists'].append({'name': i.artist_name, 'id': i.artist_id})
+    return x
+
 @router.get("/get_relevant_albums/", response_model=schemas.AlbumsList)
 def get_relevant_albums(min_year: int, 
                         max_year: int, 

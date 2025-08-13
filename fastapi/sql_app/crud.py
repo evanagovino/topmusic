@@ -6,6 +6,9 @@ from . import models, schemas
 def get_unique_genres(db: Session):
     return db.query(models.TrackFeatures.genre, models.TrackFeatures.subgenre).distinct().all()
 
+def get_unique_genres_new(db: Session):
+    return db.query(models.RelevantAlbumsNew.genre, models.RelevantAlbumsNew.subgenre).distinct().all()
+
 def get_unique_publications(db: Session):
     return db.query(models.RelevantAlbums.publication, models.RelevantAlbums.list).distinct().all()
 
@@ -14,6 +17,9 @@ def get_unique_artists_albums(db: Session):
 
 def get_artist_name_ids(db: Session):
     return db.query(models.TrackFeatures.artist, models.TrackFeatures.artist_id).distinct().all()
+
+def get_artist_name_ids_new(db: Session):
+    return db.query(models.AppleMusicArtists.artist_name, models.AppleMusicArtists.artist_id).distinct().order_by(models.AppleMusicArtists.artist_name).all()
 
 def get_albums_for_artist(db: Session, artist_id: str):
     return db.query(models.TrackFeatures.album_name, models.TrackFeatures.album_id).filter(models.TrackFeatures.artist_id == artist_id).distinct().all()
