@@ -360,3 +360,35 @@ def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_d
     for i in db_artist:
         x['artists'].append({'name': i.artist_name, 'id': i.artist_id})
     return x
+
+@router.get('/get_album_accolades/', response_model=schemas.AlbumsList)
+def get_album_accolades(album_id: str = Query(None),
+                        n_accolades: int = 10,
+                        db: Session = Depends(get_db),
+                        exclude_accolades_only_one_point: bool = True):
+    """
+    Return a dictionary of album accolades given a single album URI
+    """
+    db_albums = crud.get_album_accolades_new(db, album_id=album_id)
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    if len(db_albums) == 1:
+        exclude_accolades_only_one_point = False
+    x = {'albums': []}
+    for position, value in enumerate(db_albums):
+        new_value = {}
+        for feature in ['rank', 'points', 'publication', 'list']:
+            new_value[feature] = getattr(value, feature)
+        x['albums'].append(new_value)
+    new_dict = []
+    counting_value = 0
+    for value in sorted(x['albums'], key=lambda x: x['points'], reverse=True):
+        if exclude_accolades_only_one_point:
+            if value['points'] == 1:
+                continue
+        new_dict.append(value)
+        counting_value += 1
+        if counting_value >= n_accolades:
+            break
+    x['albums'] = new_dict
+    return x
