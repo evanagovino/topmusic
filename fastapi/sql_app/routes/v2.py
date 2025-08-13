@@ -85,7 +85,7 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
     db_albums = crud.get_album_info_new(db=db,
                                         album_keys=album_keys,
                                         apple_music_required=apple_music_required)
-    if db_albums is None:
+    if len(db_albums) == 0:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     x = unpack_albums_new(db_albums, points_weight=0.5)
     album_uris = [i for i in x['albums']]
