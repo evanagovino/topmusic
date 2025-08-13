@@ -218,6 +218,15 @@ class ArtistPoints(Base):
     artist_id = Column(String, primary_key=True)
     artist = Column(String)
     points = Column(Float)
+
+class AppleMusicArtists(Base):
+    __tablename__ = "fct_apple_music_artists"
+    __table_args__ = {"schema": "dbt"}
+
+    artist_id = Column(String, primary_key=True)
+    album_id = Column(String)
+    artist_name = Column(String)
+
     
 
     
