@@ -127,7 +127,6 @@ def unpack_albums_new(db_albums, points_weight):
     total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
     for value in x['albums']:
         x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
-        print(x['albums'][value]['weighted_rank'])
     new_dict = {}
     for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
         new_dict[value[0]] = value[1]
@@ -473,7 +472,6 @@ def return_tracks_new(db,
                 track_popularity = [i['popularity'] for i in track_results['albums'][album]]
             else:
                 track_popularity = [1 for i in track_results['albums'][album]]
-            print(track_popularity)
             track_popularity = reweight_list(track_popularity)
             tracks_to_add = np.random.choice(track_results['albums'][album], 
                                             size=track_request_size, 

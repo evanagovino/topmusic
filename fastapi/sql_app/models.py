@@ -173,8 +173,8 @@ class RelevantAlbumsNew(Base):
     __tablename__ = "dim_music_lists"
     __table_args__ = {"schema": "dbt"}
 
-    year = Column(String)
-    album_key = Column(Integer, primary_key=True)
+    year = Column(Integer)
+    album_key = Column(String, primary_key=True)
     artist = Column(String)
     album = Column(String)
     publication = Column(String)
