@@ -3,7 +3,7 @@ from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
-from ._utils import pull_relevant_albums_new
+from ._utils import pull_relevant_albums_new, unpack_albums_new, return_tracks_new
 import numpy as np
 import json
 
@@ -69,4 +69,45 @@ def get_similar_albums(album_key: str,
             'mood_distance': value.mood_distance,
             'publication_distance': value.publication_distance
         })
+    return x
+
+@router.get("/get_tracks_from_albums/", response_model=schemas.TracksList)
+def get_tracks_from_albums(album_keys: List[str] = Query(['']),
+                           weighted_rank: bool = True,
+                           album_limit: int = 500,
+                           track_length: int = 50,
+                           shuffle_tracks: bool = True,
+                           apple_music_required: bool = True,
+                           db: Session = Depends(get_db)):
+    """
+    Return a list of tracks given a list of albums
+    """
+    db_albums = crud.get_album_info_new(db=db,
+                                        album_keys=album_keys,
+                                        apple_music_required=apple_music_required)
+    if db_albums is None:
+        raise HTTPException(status_code=404, detail="No albums that match criteria")
+    x = unpack_albums_new(db_albums, points_weight=0.5)
+    album_uris = [i for i in x['albums']]
+    print(album_uris)
+    if weighted_rank:
+        weighted_ranks = [x['albums'][i]['weighted_rank'] for i in x['albums']]
+    else:
+        weighted_ranks = [1 for i in x]
+    tracks = return_tracks_new(db,
+                               album_uris,
+                                weighted_rank=weighted_ranks, 
+                                random_order=True, 
+                                track_length=track_length, 
+                                replace_albums=True, 
+                                weight_albums=True, 
+                                weight_tracks=True,
+                                album_limit=album_limit,
+                                max_songs_per_album=3
+                                )
+    x = {'tracks': []}
+    if shuffle_tracks:
+        np.random.shuffle(tracks)
+    for track in tracks:
+        x['tracks'].append(track)
     return x
