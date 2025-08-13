@@ -27,6 +27,9 @@ def get_albums_for_artist(db: Session, artist_id: str):
 def get_artist_id_from_name(db: Session, artist_name: str):
     return db.query(models.TrackFeatures.artist, models.TrackFeatures.artist_id).filter(models.TrackFeatures.artist == artist_name).distinct().all()
 
+def get_artist_id_from_name_new(db: Session, artist_name: str):
+    return db.query(models.AppleMusicArtists.artist_name, models.AppleMusicArtists.artist_id).filter(models.AppleMusicArtists.artist_name == artist_name).distinct().all()
+
 def get_all_tracks(db: Session, min_duration: int, max_duration: int):
     return db.query(models.TrackFeatures).filter(models.TrackFeatures.duration >= min_duration).filter(models.TrackFeatures.duration <= max_duration).all()
 
