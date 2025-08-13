@@ -127,6 +127,7 @@ def unpack_albums_new(db_albums, points_weight):
     total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
     for value in x['albums']:
         x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
+        print(x['albums'][value]['weighted_rank'])
     new_dict = {}
     for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
         new_dict[value[0]] = value[1]
@@ -327,6 +328,38 @@ def _get_tracks_for_albums(db,
         x['albums'][track_info['album_id']].append(track_info)
     return x
 
+def _get_tracks_for_albums_new(db, 
+                               album_keys, 
+                               min_duration: int = 60000,
+                               max_duration: int = 600000
+                               ):
+    db_album = crud.get_tracks_for_albums_new(db, 
+                                              album_keys=album_keys, 
+                                              min_duration=min_duration,
+                                              max_duration=max_duration
+                                              )
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="Album not found")
+    x = {'albums': {}}
+    for position, value in enumerate(db_album):
+        track_info = {'album_key': value.album_key,
+                     'track_name': value.apple_music_track_name,
+                     'track_id': value.apple_music_track_id,
+                     'popularity': value.track_popularity,
+                     'artist': value.artist,
+                     'album_name': value.album,
+                     'genre': value.genre,
+                     'subgenre': value.subgenre,
+                     'year': value.year,
+                     'image_url': value.image_url,
+                     'album_url': value.apple_music_album_url,
+                     'track_id_spotify_uri': f'spotify:track:{value.spotify_album_uri}'
+                     }
+        if track_info['album_key'] not in x['albums']:
+            x['albums'][track_info['album_key']] = []
+        x['albums'][track_info['album_key']].append(track_info)
+    return x
+
 def return_tracks(db,
                   album_uris,
                   weighted_rank, 
@@ -379,6 +412,68 @@ def return_tracks(db,
                 track_popularity = [i['popularity'] for i in track_results['albums'][album]]
             else:
                 track_popularity = [1 for i in track_results['albums'][album]]
+            track_popularity = reweight_list(track_popularity)
+            tracks_to_add = np.random.choice(track_results['albums'][album], 
+                                            size=track_request_size, 
+                                            replace=False,
+                                            p=track_popularity)
+            for track in tracks_to_add:
+                final_tracks.append(track)
+    return final_tracks
+
+def return_tracks_new(db,
+                     album_uris,
+                     weighted_rank, 
+                     random_order=True, 
+                     track_length=50, 
+                     replace_albums=True, 
+                     weight_albums=True, 
+                     weight_tracks=True,
+                     album_limit=500,
+                     max_songs_per_album=3
+                     ):
+    # Reweight Ranks
+    album_uris = album_uris[:album_limit]
+    weighted_rank = weighted_rank[:album_limit]
+    weighted_rank = reweight_list(weighted_rank)
+    album_choice = {}
+    if replace_albums == False:
+        request_length = min(track_length, len(album_uris))
+        album_results = np.random.choice(album_uris, 
+                                         replace=replace_albums, 
+                                         size=request_length, 
+                                         p=weighted_rank)
+        for album in album_results:
+            album_choice[album] = 1
+    else:
+        max_occurrence_count = max(max_songs_per_album, (track_length // len(album_uris)) + 1)
+        # sloppy custom way to limit random selection so top albums aren't overpulled in smaller pools
+        for i in range(track_length):
+            result = np.random.choice(album_uris, 
+                                      replace=True, 
+                                      size=1, 
+                                      p=weighted_rank)[0]
+            if result not in album_choice:
+                album_choice[result] = 1
+            else:
+                album_choice[result] += 1
+            if album_choice[result] >= max_occurrence_count:
+                item_index = album_uris.index(result)
+                del album_uris[item_index]
+                del weighted_rank[item_index]
+                weighted_rank = normalize_weights(weighted_rank)
+    track_results = _get_tracks_for_albums_new(db=db, album_keys=[i for i in album_choice])
+    final_tracks = []
+    for album in album_choice:
+        if album not in track_results['albums']:
+            track_results['albums'][album] = []
+        track_request_size = min(album_choice[album], len(track_results['albums'][album]))
+        if len(track_results['albums'][album]) > 0:
+            if weight_tracks:
+                track_popularity = [i['popularity'] for i in track_results['albums'][album]]
+            else:
+                track_popularity = [1 for i in track_results['albums'][album]]
+            print(track_popularity)
             track_popularity = reweight_list(track_popularity)
             tracks_to_add = np.random.choice(track_results['albums'][album], 
                                             size=track_request_size, 

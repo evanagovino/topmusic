@@ -6,19 +6,41 @@ class FctAlbums(Base):
     __tablename__ = 'fct_albums'
     __table_args__ = {"schema": "dbt"}
 
-    album_id = Column(Integer, primary_key=True)
+    album_key = Column(Integer, primary_key=True)
     artist = Column(String)
     album = Column(String)
     genre = Column(String)
     subgenre = Column(String)
+    year = Column(Integer)
     eligible_points = Column(Integer)
     album_points = Column(Integer)
     album_points_percentage = Column(Float)
-    publication = Column(String)
-    list = Column(String)
+    publication_data = Column(String)
+    image_url = Column(String)
+    apple_music_album_id = Column(String)
+    apple_music_album_url = Column(String)
+    spotify_album_uri = Column(String)
+
+class FctTracks(Base):
+    __tablename__ = 'fct_tracks'
+    __table_args__ = {"schema": "dbt"}
+
+    apple_music_track_id = Column(String, primary_key=True)
+    album_key = Column(Integer)
+    artist = Column(String)
+    album = Column(String)
+    genre = Column(String)
+    subgenre = Column(String)
     year = Column(Integer)
-    rank = Column(Integer)
-    spotify_deeplink = Column(String)
+    image_url = Column(String)
+    apple_music_album_id = Column(String)
+    apple_music_album_url = Column(String)
+    spotify_album_uri = Column(String)
+    duration_ms = Column(Integer)
+    apple_music_track_name = Column(String)
+    track_popularity = Column(Integer)
+    album_points = Column(Integer)
+    eligible_points = Column(Integer)
     
 
 
@@ -151,7 +173,7 @@ class RelevantAlbumsNew(Base):
     __tablename__ = "dim_music_lists"
     __table_args__ = {"schema": "dbt"}
 
-    year = Column(Integer)
+    year = Column(String)
     album_key = Column(Integer, primary_key=True)
     artist = Column(String)
     album = Column(String)
