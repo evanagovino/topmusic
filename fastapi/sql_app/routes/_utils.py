@@ -768,4 +768,4 @@ def _get_apple_music_auth_header(api_key: str):
     }
 
     encoded_heading = jwt.encode(payload, SECRET, algorithm=ALG, headers=headers)
-    return encoded_heading
+    return {'developer_token': encoded_heading}
