@@ -39,12 +39,12 @@ def get_distinct_artists(db: Session = Depends(get_db)):
 
 @router.get("/artist_id_from_artist_name/", response_model=schemas.ArtistsList)
 def get_artist_id_from_artist_name(artist_name: str, db: Session = Depends(get_db)):
-    db_artist = crud.get_artist_id_from_name(db, artist_name=artist_name)
+    db_artist = crud.get_artist_id_from_name_new(db, artist_name=artist_name)
     if db_artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
     x = {'artists': []}
     for i in db_artist:
-        x['artists'].append({'name': i.artist, 'id': i.artist_id})
+        x['artists'].append({'name': i.artist_name, 'id': i.artist_id})
     return x
 
 @router.get("/get_relevant_albums/", response_model=schemas.AlbumsList)
