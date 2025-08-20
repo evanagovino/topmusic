@@ -330,7 +330,8 @@ def _get_tracks_for_albums(db,
     return x
 
 def _get_tracks_for_albums_new(db, 
-                               album_keys, 
+                               album_keys,
+                               only_include_apple_music_tracks: bool = True,
                                min_duration: int = 60000,
                                max_duration: int = 600000
                                ):
@@ -343,6 +344,9 @@ def _get_tracks_for_albums_new(db,
         raise HTTPException(status_code=404, detail="Album not found")
     x = {'albums': {}}
     for position, value in enumerate(db_album):
+        if only_include_apple_music_tracks:
+            if value.apple_music_track_id is None:
+                continue
         track_info = {'album_key': value.album_key,
                      'track_name': value.apple_music_track_name,
                      'track_id': value.apple_music_track_id,
