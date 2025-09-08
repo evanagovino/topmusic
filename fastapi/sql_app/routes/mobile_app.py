@@ -416,11 +416,11 @@ def get_artists_from_search_string(search_string: str, db: Session = Depends(get
     return x
 
 @router.get("/get_albums_from_search_string/", response_model=schemas.AlbumsList)
-def get_albums_from_search_string(search_string: str, db: Session = Depends(get_db)):
+def get_albums_from_search_string(search_string: str, num_results: int = 10, db: Session = Depends(get_db)):
     """
     Return a list of artists given a search string
     """
-    db_artists = crud.get_albums_from_search_string(db, search_string)
+    db_artists = crud.get_albums_from_search_string(db, search_string, num_results)
     x = {'albums': []}
     for i in db_artists:
         x['albums'].append({'name': i.album, 'id': i.album_key})

@@ -251,10 +251,12 @@ def get_album_info_new(db: Session, album_keys: list, apple_music_required: bool
     return base_query.group_by(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri).all()
 
 def get_albums_from_search_string(db: Session, search_term: str, num_results: int):
+    search_words = search_term.split(' ')
+    ts_query = ' & '.join([f"{word}:*" for word in search_words])
     query = text(f"""
     SELECT *, ts_rank(vector_search, query) as rank
-    FROM dbt.vector_album_search, plainto_tsquery('english', '{search_term}') query
-    WHERE vector_search @@ query
+    FROM dbt.vector_album_search, websearch_to_tsquery('english', '{ts_query}') query
+    WHERE vector_search @@ to_tsquery('english', '{ts_query}')
     ORDER BY rank DESC
     LIMIT {num_results};
     """)
