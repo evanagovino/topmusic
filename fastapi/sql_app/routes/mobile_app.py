@@ -432,10 +432,7 @@ def get_apple_music_auth_header(api_key: str = Depends(verify_api_key)):
 
 @router.get("/get_album_info/{album_id}", response_model=schemas.AlbumsList)
 def get_album_info(album_id: str, db: Session = Depends(get_db)):
-    db_album = crud.get_album_info_new(db=db,
-                                       album_keys=[album_id],
-                                       apple_music_required=False
-                                       )
+    db_album = crud.get_album_info_new_albums_table(db=db, album_key=album_id)
     if db_album is None:
         raise HTTPException(status_code=404, detail="Album not found")
     x = {'albums': []}
