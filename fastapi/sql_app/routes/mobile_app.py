@@ -423,12 +423,34 @@ def get_albums_from_search_string(search_string: str, num_results: int = 10, db:
     db_artists = crud.get_albums_from_search_string(db, search_string, num_results)
     x = {'albums': []}
     for i in db_artists:
-        x['albums'].append({'name': i.album, 'id': i.album_key})
+        x['albums'].append({'name': i.album, 'id': i.album_key, 'artist': i.artist})
     return x
 
 @router.get("/get_apple_music_auth_header/")
 def get_apple_music_auth_header(api_key: str = Depends(verify_api_key)):
     return _get_apple_music_auth_header(api_key)
+
+@router.get("/get_album_info/{album_id}", response_model=schemas.AlbumsList)
+def get_album_info(album_id: str, db: Session = Depends(get_db)):
+    db_album = crud.get_album_info_new(db=db,
+                                       album_keys=[album_id],
+                                       apple_music_required=False
+                                       )
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="Album not found")
+    x = {'albums': []}
+    for i in db_album:
+        x['albums'].append({'album_name': i.album, 
+                            'album_key': i.album_key,
+                            'artist': i.artist,
+                            'genre': i.genre,
+                            'subgenre': i.subgenre,
+                            'year': i.year,
+                            'image_url': i.image_url,
+                            'apple_music_album_id': i.apple_music_album_id,
+                            'apple_music_album_url': i.apple_music_album_url,
+                            'spotify_album_uri': i.spotify_album_uri})
+    return x
 
 
 
