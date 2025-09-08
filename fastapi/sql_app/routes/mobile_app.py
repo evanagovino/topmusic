@@ -415,6 +415,17 @@ def get_artists_from_search_string(search_string: str, db: Session = Depends(get
         x['artists'].append({'name': i.artist, 'id': i.artist_id})
     return x
 
+@router.get("/get_albums_from_search_string/", response_model=schemas.AlbumsList)
+def get_albums_from_search_string(search_string: str, db: Session = Depends(get_db)):
+    """
+    Return a list of artists given a search string
+    """
+    db_artists = crud.get_albums_from_search_string(db, search_string)
+    x = {'albums': []}
+    for i in db_artists:
+        x['albums'].append({'name': i.album, 'id': i.album_key})
+    return x
+
 @router.get("/get_apple_music_auth_header/")
 def get_apple_music_auth_header(api_key: str = Depends(verify_api_key)):
     return _get_apple_music_auth_header(api_key)
