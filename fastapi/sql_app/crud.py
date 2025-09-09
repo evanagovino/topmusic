@@ -253,6 +253,13 @@ def get_album_info_new(db: Session, album_keys: list, apple_music_required: bool
 def get_album_info_new_albums_table(db: Session, album_key: str):
     return db.query(models.FctAlbums.album_key, models.FctAlbums.artist, models.FctAlbums.album, models.FctAlbums.genre, models.FctAlbums.subgenre, models.FctAlbums.year, models.FctAlbums.image_url, models.FctAlbums.apple_music_album_id, models.FctAlbums.apple_music_album_url, models.FctAlbums.spotify_album_uri).filter(models.FctAlbums.album_key == album_key).all()
 
+def get_all_tracks_new(db: Session, genres: list = []):
+    print('Genres', genres)
+    base_query = db.query(models.FctTracks).filter(models.FctTracks.apple_music_track_id.isnot(None))
+    if len(genres) > 0 and genres[0] != '':
+        base_query = base_query.filter(models.FctTracks.genre.in_(genres))
+    return base_query.all()
+
 def get_albums_from_search_string(db: Session, search_term: str, num_results: int):
     search_words = search_term.split(' ')
     ts_query = ' & '.join([f"{word}:*" for word in search_words])

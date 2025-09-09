@@ -4,7 +4,9 @@ from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums_new, unpack_albums_new, return_tracks_new, normalize_weights
+from .llm_utils import test_llm, get_all_tracks, normalize_column_manual, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features
 import numpy as np
+import pandas as pd
 import json
 
 router = APIRouter(prefix="/app", tags=["Mobile App"])
@@ -449,6 +451,32 @@ def get_album_info(album_id: str, db: Session = Depends(get_db)):
                             'spotify_album_uri': i.spotify_album_uri})
     return x
 
-
-
-
+@router.get("/create_playlist_from_user_prompt/", response_model=schemas.TracksLLMResponse)
+def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Query(['']), db: Session = Depends(get_db)):
+    tracks_db = get_all_tracks(db, genres=genres)
+    print('NUM OF RETURNED SONGS',len(tracks_db['tracks']))
+    df = pd.DataFrame(tracks_db['tracks'])
+    available_genres = sorted(df['genre'].dropna().unique().tolist())
+    available_subgenres = sorted(df['subgenre'].dropna().unique().tolist())
+    available_artists = sorted(df['artist'].dropna().unique().tolist())
+    df['genre'] = df['genre'].str.lower()
+    df['subgenre'] = df['subgenre'].str.lower()
+    for feature in ['energy', 'valence', 'danceability', 'instrumentalness']:
+        df[feature] = normalize_column_manual(df[feature])
+    df['tempo_mapped'] = df.apply(normalize_tempo_column, axis=1)
+    audio_features = ['tempo_mapped', 'energy', 'valence', 'danceability', 'instrumentalness', 'track_popularity']
+    df['derived_mood'] = df.apply(derive_mood_from_features, axis=1)
+    test_result, prompt, where_conditions = generate_playlist_with_audio_features(user_request, df)
+    if test_result is None:
+        raise HTTPException(status_code=404, detail="No tracks found, please try again with different genres or a different request")
+    x = {'tracks': [], 'explanation': prompt, 'where_conditions': where_conditions}
+    for result in test_result.iterrows():
+        x['tracks'].append({
+            'track_id': result[1].track_id,
+            'track_name': result[1].track_name,
+            'artist': result[1].artist,
+            'album': result[1].album,
+            'genre': result[1].genre,
+            'subgenre': result[1].subgenre,
+        })
+    return x
