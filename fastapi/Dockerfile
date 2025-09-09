@@ -10,8 +10,8 @@ RUN pip install -r /code/requirements.txt
 
 COPY . /sql_app /code/sql_app
 
-# CMD ["uvicorn", "sql_app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--root-path", "/api/v1"]
+CMD ["uvicorn", "sql_app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--root-path", "/api/v1"]
 
 # use below to run locally - not sure why this is an issue?
-CMD ["uvicorn", "sql_app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# CMD ["uvicorn", "sql_app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 

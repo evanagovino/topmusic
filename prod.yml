@@ -11,9 +11,6 @@ services:
       - .env
     volumes:
       - .:/app
-    networks:
-      - frontend-network
-      - backend-network
     depends_on:
       ollama:
         condition: service_healthy
@@ -26,17 +23,15 @@ services:
       - OLLAMA_HOST=0.0.0.0
     volumes:
       - ./ollama_models:/root/.ollama
-    networks:
-      - backend-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-        limits:
-          memory: 6G  # Reduced for development
+    # deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - driver: nvidia
+    #          count: 1
+    #          capabilities: [gpu]
+    #    limits:
+    #      memory: 6G  # Reduced for development
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 30s
@@ -50,12 +45,8 @@ services:
       context: streamlit
       dockerfile: Dockerfile
     container_name: streamlit
-    restart: always
     env_file:
       - .env
-    networks:
-      - frontend-network
-      - backend-network
     depends_on:
       - fastapi
     restart: unless-stopped
@@ -67,8 +58,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    networks:
-      - frontend-network
     depends_on:
       - streamlit
       - fastapi
@@ -77,19 +66,23 @@ services:
       - ./certbot/www:/var/www/certbot/:ro
       - ./certbot/conf/:/etc/nginx/ssl/:ro
     restart: unless-stopped
-    
+ 
+  ollama-setup:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    volumes:
+      - ./ollama_models:/root/.ollama
+    command: >
+      sh -c "
+        sleep 30 &&
+        ollama pull llama2:7b &&
+        echo 'Model ready!'
+      "
+
   certbot:
     image: certbot/certbot:latest
     volumes:
       - ./certbot/www/:/var/www/certbot/:rw
       - ./certbot/conf/:/etc/letsencrypt/:rw
-  
-  volumes:
-    ollama_models:
-  
-  networks:
-    - frontend-network
-      driver: bridge
-    - backend-network
-      driver: bridge
 
