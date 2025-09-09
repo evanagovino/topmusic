@@ -5,10 +5,45 @@ services:
     build:
       context: fastapi
       dockerfile: Dockerfile
+    environment:
+      - LLM_ENDPOINT=http://ollama:11434
     env_file:
       - .env
     volumes:
       - .:/app
+    networks:
+      - frontend-network
+      - backend-network
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-llm-prod
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    volumes:
+      - ./ollama_models:/root/.ollama
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 6G  # Reduced for development
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
 
   streamlit:
     build:
@@ -18,17 +53,22 @@ services:
     restart: always
     env_file:
       - .env
+    networks:
+      - frontend-network
+      - backend-network
     depends_on:
       - fastapi
+    restart: unless-stopped
 
   reverse:
     container_name: reverse
     hostname: reverse
-    restart: always
     build: ./nginx
     ports:
       - "80:80"
       - "443:443"
+    networks:
+      - frontend-network
     depends_on:
       - streamlit
       - fastapi
@@ -36,10 +76,20 @@ services:
       - ./nginx/conf/:/etc/nginx/conf.d/:ro
       - ./certbot/www:/var/www/certbot/:ro
       - ./certbot/conf/:/etc/nginx/ssl/:ro
+    restart: unless-stopped
     
   certbot:
     image: certbot/certbot:latest
     volumes:
       - ./certbot/www/:/var/www/certbot/:rw
       - ./certbot/conf/:/etc/letsencrypt/:rw
+  
+  volumes:
+    ollama_models:
+  
+  networks:
+    - frontend-network
+      driver: bridge
+    - backend-network
+      driver: bridge
 

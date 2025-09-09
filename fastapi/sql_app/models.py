@@ -41,6 +41,12 @@ class FctTracks(Base):
     track_popularity = Column(Integer)
     album_points = Column(Integer)
     eligible_points = Column(Integer)
+    tempo_raw = Column(Float)
+    danceability_clean = Column(Float)
+    energy_clean = Column(Float)
+    instrumentalness_clean = Column(Float)
+    valence_clean = Column(Float)
+    speechiness_clean = Column(Float)
     
 
 

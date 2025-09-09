@@ -44,6 +44,14 @@ class TracksList(BaseModel):
     class Config:
         orm_mode = True
 
+class TracksLLMResponse(BaseModel):
+    tracks: list
+    explanation: str
+    where_conditions: list
+
+    class Config:
+        orm_mode = True
+
 class TrackDetails(BaseModel):
     track_id: str
     artist_id: str
