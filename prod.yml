@@ -5,6 +5,8 @@ services:
     build:
       context: fastapi
       dockerfile: Dockerfile
+    environment:
+      - LLM_ENDPOINT=http://ollama:11434
     env_file:
       - .env
     volumes:
