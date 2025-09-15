@@ -11,33 +11,6 @@ services:
       - .env
     volumes:
       - .:/app
-    depends_on:
-      ollama:
-        condition: service_healthy
-    restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama-llm-prod
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    volumes:
-      - ./ollama_models:/root/.ollama
-    # deploy:
-    #  resources:
-    #    reservations:
-    #      devices:
-    #        - driver: nvidia
-    #          count: 1
-    #          capabilities: [gpu]
-    #    limits:
-    #      memory: 6G  # Reduced for development
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
     restart: unless-stopped
 
   streamlit:
@@ -66,19 +39,6 @@ services:
       - ./certbot/www:/var/www/certbot/:ro
       - ./certbot/conf/:/etc/nginx/ssl/:ro
     restart: unless-stopped
- 
-  ollama-setup:
-    image: ollama/ollama:latest
-    depends_on:
-      - ollama
-    volumes:
-      - ./ollama_models:/root/.ollama
-    command: >
-      sh -c "
-        sleep 30 &&
-        ollama pull llama2:7b &&
-        echo 'Model ready!'
-      "
 
   certbot:
     image: certbot/certbot:latest

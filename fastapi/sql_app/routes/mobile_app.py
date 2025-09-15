@@ -452,7 +452,7 @@ def get_album_info(album_id: str, db: Session = Depends(get_db)):
     return x
 
 @router.get("/create_playlist_from_user_prompt/", response_model=schemas.TracksLLMResponse)
-def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Query(['']), db: Session = Depends(get_db)):
+def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Query(['']), weigh_by_popularity: bool = True, song_limit: int = 50, debug: bool = False, db: Session = Depends(get_db)):
     tracks_db = get_all_tracks(db, genres=genres)
     print('NUM OF RETURNED SONGS',len(tracks_db['tracks']))
     df = pd.DataFrame(tracks_db['tracks'])
@@ -464,12 +464,14 @@ def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Quer
     for feature in ['energy', 'valence', 'danceability', 'instrumentalness']:
         df[feature] = normalize_column_manual(df[feature])
     df['tempo_mapped'] = df.apply(normalize_tempo_column, axis=1)
-    audio_features = ['tempo_mapped', 'energy', 'valence', 'danceability', 'instrumentalness', 'track_popularity']
+    audio_features = ['tempo_mapped', 'energy', 'valence', 'danceability', 'instrumentalness', 'popularity']
     df['derived_mood'] = df.apply(derive_mood_from_features, axis=1)
-    test_result, prompt, where_conditions = generate_playlist_with_audio_features(user_request, df)
+    test_result, explanation, where_conditions, prompt = generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=weigh_by_popularity, song_limit=song_limit)
     if test_result is None:
         raise HTTPException(status_code=404, detail="No tracks found, please try again with different genres or a different request")
-    x = {'tracks': [], 'explanation': prompt, 'where_conditions': where_conditions}
+    x = {'tracks': [], 'explanation': explanation, 'where_conditions': where_conditions}
+    if debug:
+        x['prompt'] = prompt
     for result in test_result.iterrows():
         x['tracks'].append({
             'track_id': result[1].track_id,
@@ -478,5 +480,11 @@ def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Quer
             'album': result[1].album,
             'genre': result[1].genre,
             'subgenre': result[1].subgenre,
+            'apple_music_album_id': result[1].apple_music_album_id,
+            'album_url': result[1].apple_music_album_url,
+            'album_key': result[1].album_key,
+            'image_url': result[1].image_url,
+            'year': result[1].year,
+            'track_popularity': result[1].popularity,
         })
     return x
