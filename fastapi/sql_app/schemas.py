@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 
 from pydantic import BaseModel
 
@@ -48,6 +48,7 @@ class TracksLLMResponse(BaseModel):
     tracks: list
     explanation: str
     where_conditions: list
+    prompt: Optional[str] = None
 
     class Config:
         orm_mode = True

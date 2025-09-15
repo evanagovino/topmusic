@@ -12,3 +12,4 @@ python-dotenv
 PyJWT==2.10.1
 cryptography==45.0.5
 requests==2.32.4
+anthropic==0.67.0

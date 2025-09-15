@@ -9,6 +9,7 @@ import pandas as pd
 import os
 from typing import List
 from sqlalchemy.orm import Session
+import anthropic
 
 OLLAMA_HOST = os.getenv('LLM_ENDPOINT')
 
@@ -65,6 +66,27 @@ def test_llm(prompt, model="llama2:7b", initial_max_tokens=600):
     
     return None
 
+def test_llm_claude(prompt):
+    client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+    try:
+        start_time = time.time()
+        response = client.messages.create(
+            model="claude-3-5-haiku-latest",
+            max_tokens=1024,
+            messages=[
+                {"role": "user", "content": f"{prompt}"}
+            ]
+        )
+        end_time = time.time()
+        # return json.loads(response.content[0].text, strict=False)
+        return response.content[0].text
+            
+    except Exception as e:
+        print(f"❌ Error): {e}")
+        return None
+    
+    return None
+
 def get_all_tracks(db: Session, genres: List[str] = [], limit: int = None):
     db_tracks = crud.get_all_tracks_new(db, genres=genres)
     if db_tracks is None:
@@ -86,7 +108,11 @@ def get_all_tracks(db: Session, genres: List[str] = [], limit: int = None):
              'instrumentalness': value.instrumentalness_clean,
              'valence': value.valence_clean,
              'speechiness': value.speechiness_clean,
-             'track_popularity': value.track_popularity,
+             'popularity': value.track_popularity,
+             'apple_music_album_id': value.apple_music_album_id,
+             'apple_music_album_url': value.apple_music_album_url,
+             'album_key': value.album_key,
+             'image_url': value.image_url,
              }
         x['tracks'].append(d)
     return x
@@ -206,9 +232,22 @@ def parse_condition(df, condition):
             pattern = match.group(2)
             return 'LIKE', column, pattern
     
+    elif " = " in condition:
+        # Handle equality conditions
+        match = re.match(r'(\w+)\s*=\s*\'?([^\']+)\'?', condition, re.IGNORECASE)
+        if match:
+            column = match.group(1)
+            value = match.group(2)
+            # Try to convert to float if it's a number, otherwise keep as string
+            try:
+                value = float(value)
+            except ValueError:
+                pass
+            return '=', column, value
+    
     return None, None, None
 
-def query_songs_with_features(df, where_conditions=None, song_limit=50):
+def query_songs_with_features(df, where_conditions=None, weigh_by_popularity=True, song_limit=50):
     """Query songs using your actual feature set with better condition parsing"""
     
     df = df.copy()
@@ -266,35 +305,38 @@ def query_songs_with_features(df, where_conditions=None, song_limit=50):
                 elif operator == 'LIKE':
                     df = df[df[df_column].str.contains(value, case=False, na=False)]
                     print(f"    Filtered to {len(df)} songs where {df_column} contains '{value}'")
+
+                elif operator == '=':
+                    df = df[df[df_column] == value]
+                    print(f"    Filtered to {len(df)} songs where {df_column} = {value}")
                 
             except Exception as e:
                 print(f"⚠️ Error processing condition '{condition}': {e}")
                 continue
     
     # Sort by popularity if available
-    try:
-        weights = df['track_popularity'].values
-        min_weight = weights.min()
-        if min_weight <= 0:
-            weights = weights - min_weight + 0.01
-        sampled_indices = np.random.choice(
-                        df.index, 
-                        size=min(song_limit, len(df)), 
-                        replace=False, 
-                        p=weights / weights.sum()
-                    )
-        result = df.loc[sampled_indices]
-    except Exception as e:
-        print('Error', e)
+    if weigh_by_popularity:
+        try:
+            weights = df['popularity'].values
+            min_weight = weights.min()
+            if min_weight <= 0:
+                weights = weights - min_weight + 0.01
+            sampled_indices = np.random.choice(
+                            df.index, 
+                            size=min(song_limit, len(df)), 
+                            replace=False, 
+                            p=weights / weights.sum()
+                        )
+            result = df.loc[sampled_indices]
+        except Exception as e:
+            print('Error', e)
+            result = df.head(song_limit)
+    else:
         result = df.head(song_limit)
-    
-    # Apply limit
-    # result = df.head(limit)
-    
     print(f"✅ Final result: {len(result)} songs")
     return result
 
-def generate_playlist_with_audio_features(user_request, df, song_limit=50):
+def generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=True, song_limit=50):
     """Generate playlist using your actual audio features"""
     
     # Build context from your actual data
@@ -304,7 +346,7 @@ def generate_playlist_with_audio_features(user_request, df, song_limit=50):
     
     # Audio feature ranges
     feature_ranges = {}
-    for feature in ['energy', 'valence', 'danceability', 'instrumentalness','tempo_mapped', 'track_popularity']:
+    for feature in ['energy', 'valence', 'danceability', 'instrumentalness','tempo_mapped', 'popularity']:
         if feature in df.columns:
             feature_ranges[feature] = {
                 'min': df[feature].min(),
@@ -322,12 +364,12 @@ Moods: {', '.join(mood_counts.index.tolist())}
 Years: {df['year'].min()}-{df['year'].max()}
 
 AUDIO FEATURES (0.0-1.0 scale except Tempo and Popularity):
-- Energy: {feature_ranges.get('energy_clean', {}).get('min', 0):.2f}-{feature_ranges.get('energy_clean', {}).get('max', 1):.2f} (higher = more energetic)
-- Valence: {feature_ranges.get('valence_clean', {}).get('min', 0):.2f}-{feature_ranges.get('valence_clean', {}).get('max', 1):.2f} (higher = more positive/happy)
-- Danceability: {feature_ranges.get('danceability_clean', {}).get('min', 0):.2f}-{feature_ranges.get('danceability_clean', {}).get('max', 1):.2f} (higher = more danceable)
-- Instrumentalness: {feature_ranges.get('instrumentalness_clean', {}).get('min', 0):.2f}-{feature_ranges.get('instrumentalness_clean', {}).get('max', 1):.2f} (higher = less vocals)
-- Tempo: {feature_ranges.get('tempo_mapped', {}).get('min', 0):.0f}-{feature_ranges.get('tempo_mapped', {}).get('max', 200):.0f} BPM
-- Popularity: {feature_ranges.get('track_popularity', {}).get('min', 0):.0f}-{feature_ranges.get('track_popularity', {}).get('max', 200):.0f} BPM
+- Energy: {feature_ranges.get('energy_clean', {}).get('min', 0):.2f}-{feature_ranges.get('energy_clean', {}).get('max', 1):.2f}. Mean of {feature_ranges.get('energy_clean', {}).get('mean', 0.5):.2f} (higher = more energetic)
+- Valence: {feature_ranges.get('valence_clean', {}).get('min', 0):.2f}-{feature_ranges.get('valence_clean', {}).get('max', 1):.2f}. Mean of {feature_ranges.get('valence_clean', {}).get('mean', 0.5):.2f} (higher = more positive/happy)
+- Danceability: {feature_ranges.get('danceability_clean', {}).get('min', 0):.2f}-{feature_ranges.get('danceability_clean', {}).get('max', 1):.2f}. Mean of {feature_ranges.get('danceability_clean', {}).get('mean', 0.5):.2f} (higher = more danceable)
+- Instrumentalness: {feature_ranges.get('instrumentalness_clean', {}).get('min', 0):.2f}-{feature_ranges.get('instrumentalness_clean', {}).get('max', 1):.2f}. Mean of {feature_ranges.get('instrumentalness_clean', {}).get('mean', 0.5):.2f} (higher = less vocals)
+- Tempo: {feature_ranges.get('tempo_mapped', {}).get('min', 0):.0f}-{feature_ranges.get('tempo_mapped', {}).get('max', 200):.0f}. Mean of {feature_ranges.get('tempo_mapped', {}).get('mean', 120):.0f} BPM
+- Popularity: {feature_ranges.get('popularity', {}).get('min', 0):.0f}-{feature_ranges.get('popularity', {}).get('max', 100):.0f}. Mean of {feature_ranges.get('popularity', {}).get('mean', 50):.0f}
 
 For the request, try and determine which moods it fits from the available moods, and then return songs with those moods, or songs that have similar audio features to the moods requested.
 
@@ -357,16 +399,13 @@ Return ONLY valid JSON:
 
 Request: {user_request}
 JSON:"""
-    
-    # Get LLM response
-    # print(prompt)
-    response = test_llm(prompt, initial_max_tokens=600)
+    response = test_llm_claude(prompt)
     
     if response:
         try:
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
-                query_spec = json.loads(json_match.group())
+                query_spec = json.loads(json_match.group(), strict=False)
                 
                 print("🤖 LLM Generated:")
                 print(json.dumps(query_spec, indent=2))
@@ -375,7 +414,7 @@ JSON:"""
                 where_conditions = query_spec.get('where_conditions', [])
                 explanation = query_spec.get('explanation', '')
                 print('*******************Where Conditions')
-                results = query_songs_with_features(df, where_conditions, song_limit)
+                results = query_songs_with_features(df, where_conditions, weigh_by_popularity=weigh_by_popularity, song_limit=song_limit)
                 
                 print(f"\n🎵 Playlist Results:")
                 for idx, row in results.iterrows():
@@ -386,8 +425,7 @@ JSON:"""
                     tempo = f"T:{row.get('tempo_mapped', 'N/A'):.0f}" if pd.notna(row.get('tempo_mapped')) else "T:N/A"
                     
                     print(f"  {row['artist']} - {row.get('track_name', 'Unknown Track Name')} ({row['genre']}) [{energy}, {valence}, {tempo}, {danceability}, {instrumentalness}]")
-                
-                return results, explanation, where_conditions
+                return results, explanation, where_conditions, prompt
             else:
                 print('No JSON match returned')
                 print(response)
@@ -398,4 +436,4 @@ JSON:"""
     else:
         print('No response returned.')
     
-    return None, None, None
+    return None, None, None, None
