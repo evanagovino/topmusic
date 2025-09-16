@@ -477,7 +477,7 @@ def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Quer
             'track_id': result[1].track_id,
             'track_name': result[1].track_name,
             'artist': result[1].artist,
-            'album': result[1].album,
+            'album_name': result[1].album,
             'genre': result[1].genre,
             'subgenre': result[1].subgenre,
             'apple_music_album_id': result[1].apple_music_album_id,
