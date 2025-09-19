@@ -425,7 +425,7 @@ def get_albums_from_search_string(search_string: str, num_results: int = 10, db:
     db_artists = crud.get_albums_from_search_string(db, search_string, num_results)
     x = {'albums': []}
     for i in db_artists:
-        x['albums'].append({'name': i.album, 'id': i.album_key, 'artist': i.artist})
+        x['albums'].append({'name': i.album, 'id': i.album_key, 'artist': i.artist, 'image_url': i.image_url})
     return x
 
 @router.get("/get_apple_music_auth_header/")
