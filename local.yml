@@ -31,6 +31,18 @@ services:
     depends_on:
       - fastapi
 
+  web:
+    image: nginx:alpine
+    networks: 
+      AIservice: 
+        aliases: 
+          - web.docker
+    ports:
+      - 8080:80
+    volumes:
+      - ./privacy-policy.html:/usr/share/nginx/html/privacy-policy.html:ro
+      - ./nginx-static.conf:/etc/nginx/conf.d/default.conf:ro
+
 networks:
   AIservice:
     external: true
