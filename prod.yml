@@ -38,7 +38,7 @@ services:
       - ./nginx/conf/:/etc/nginx/conf.d/:ro
       - ./certbot/www:/var/www/certbot/:ro
       - ./certbot/conf/:/etc/nginx/ssl/:ro
-      - ./privacy-policy.html:/usr/share/nginx/html/privacy-policy.html:ro
+      - ./privacy-policy.html:/var/www/html/privacy-policy.html:ro
     restart: unless-stopped
 
   certbot:
