@@ -394,7 +394,8 @@ Generate PostgreSQL WHERE conditions. Use exact column names: Energy, Valence, D
 Return ONLY valid JSON:
 {{
   "where_conditions": ["condition1", "condition2", "condition3"],
-  "explanation": "reasoning about audio features"
+  "explanation": "reasoning about audio features",
+  "playlist name": "one word description of the playlist"
 }}
 
 Request: {user_request}
@@ -413,6 +414,7 @@ JSON:"""
                 # Apply to real data
                 where_conditions = query_spec.get('where_conditions', [])
                 explanation = query_spec.get('explanation', '')
+                playlist_name = query_spec.get('playlist name', '')
                 print('*******************Where Conditions')
                 results = query_songs_with_features(df, where_conditions, weigh_by_popularity=weigh_by_popularity, song_limit=song_limit)
                 
@@ -425,7 +427,7 @@ JSON:"""
                     tempo = f"T:{row.get('tempo_mapped', 'N/A'):.0f}" if pd.notna(row.get('tempo_mapped')) else "T:N/A"
                     
                     print(f"  {row['artist']} - {row.get('track_name', 'Unknown Track Name')} ({row['genre']}) [{energy}, {valence}, {tempo}, {danceability}, {instrumentalness}]")
-                return results, explanation, where_conditions, prompt
+                return results, explanation, playlist_name,where_conditions, prompt
             else:
                 print('No JSON match returned')
                 print(response)

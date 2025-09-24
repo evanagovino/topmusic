@@ -466,10 +466,10 @@ def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Quer
     df['tempo_mapped'] = df.apply(normalize_tempo_column, axis=1)
     audio_features = ['tempo_mapped', 'energy', 'valence', 'danceability', 'instrumentalness', 'popularity']
     df['derived_mood'] = df.apply(derive_mood_from_features, axis=1)
-    test_result, explanation, where_conditions, prompt = generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=weigh_by_popularity, song_limit=song_limit)
+    test_result, explanation, playlist_name, where_conditions, prompt = generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=weigh_by_popularity, song_limit=song_limit)
     if test_result is None:
         raise HTTPException(status_code=404, detail="No tracks found, please try again with different genres or a different request")
-    x = {'tracks': [], 'explanation': explanation, 'where_conditions': where_conditions}
+    x = {'tracks': [], 'explanation': explanation, 'where_conditions': where_conditions, 'playlist_name': playlist_name}
     if debug:
         x['prompt'] = prompt
     for result in test_result.iterrows():
