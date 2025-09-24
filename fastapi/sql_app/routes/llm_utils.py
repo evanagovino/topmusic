@@ -395,7 +395,7 @@ Return ONLY valid JSON:
 {{
   "where_conditions": ["condition1", "condition2", "condition3"],
   "explanation": "reasoning about audio features",
-  "playlist name": "one word description of the playlist"
+  "playlist name": "one or two words description of the playlist"
 }}
 
 Request: {user_request}
