@@ -91,10 +91,13 @@ def get_relevant_albums(min_year: int,
 def get_similar_albums(album_key: str, 
                       publication_weight: float = 0.7,
                       num_results: int = 10,
+                      skip_first_album: bool = True,
                       db: Session = Depends(get_db)):
     x = {}
     x['albums'] = []
     results = crud.get_similar_albums(db=db, album_key=album_key, publication_weight=publication_weight, num_results=num_results)
+    if skip_first_album:
+        results = results[1:]
     for value in results:
         x['albums'].append({
             'album_key': value.album_key,
