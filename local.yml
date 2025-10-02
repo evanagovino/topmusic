@@ -5,10 +5,6 @@ services:
     build:
       context: fastapi
       dockerfile: Dockerfile
-    networks: 
-      AIservice: 
-        aliases: 
-          - backend.docker
     env_file:
       - .env
     volumes:
@@ -20,10 +16,6 @@ services:
     build:
       context: streamlit
       dockerfile: Dockerfile
-    networks: 
-      AIservice: 
-        aliases: 
-          - frontend.docker
     ports:
       - 8501:8501
     env_file:
@@ -33,17 +25,8 @@ services:
 
   web:
     image: nginx:alpine
-    networks: 
-      AIservice: 
-        aliases: 
-          - web.docker
     ports:
       - 8080:80
     volumes:
       - ./privacy-policy.html:/usr/share/nginx/html/privacy-policy.html:ro
-      - ./nginx-static.conf:/etc/nginx/conf.d/default.conf:ro
-
-networks:
-  AIservice:
-    external: true
-
+      - ./nginx/conf/:/etc/nginx/conf.d/:ro
