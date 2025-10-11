@@ -30,7 +30,9 @@ def apple_music_create_playlist(tracks, playlist_name):
         response = requests.post(base_url, headers={'x-api-key': st.session_state.api_key})
         if response.status_code == 200:
             st.write('Playlist created successfully')
-            link = f'[See Your Custom Playlist Here](https://music.apple.com/us/library/all-playlists/)'
+            link = f'[See Your Custom Playlist On Apple Music](music://music.apple.com/us/library/all-playlists/)'
+            st.markdown(link, unsafe_allow_html=True)
+            link = f'[See Your Custom Playlist On Web](https://music.apple.com/us/library/all-playlists/)'
             st.markdown(link, unsafe_allow_html=True)
         else:
             st.write(response.status_code)
