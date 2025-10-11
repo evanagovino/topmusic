@@ -76,3 +76,6 @@ class AlbumsList(BaseModel):
 
     class Config:
         orm_mode = True
+
+class UserTokenRequest(BaseModel):
+    user_token: str

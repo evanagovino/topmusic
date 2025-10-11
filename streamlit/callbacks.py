@@ -60,15 +60,16 @@ def song_callback():
 
 def radio_callback(album_limit=100):
     if st.session_state.radio_type == 'Artist':
-        if 'album_id' in st.session_state:
-            album_id = st.session_state.album_id
-        else:
-            album_id = None
-        if 'track_id' not in st.session_state:
-            st.session_state.track_id = retrieve_popular_tracks(artist_id=st.session_state.artist_id, 
-                                                                album_id=album_id)
-        st.session_state.track_info = get_track_info(track_id=st.session_state.track_id,
-                                                     restrict_genre = st.session_state.restrict_genre)
+        # if 'album_id' in st.session_state:
+        #     album_id = st.session_state.album_id
+        # else:
+        #     album_id = None
+        # if 'track_id' not in st.session_state:
+        #     st.session_state.track_id = retrieve_popular_tracks(artist_id=st.session_state.artist_id, 
+        #                                                         album_id=album_id)
+        # st.session_state.track_info = get_track_info(track_id=st.session_state.track_id,
+        #                                              restrict_genre = st.session_state.restrict_genre)
+        st.session_state.track_info = get_recommended_tracks(artist_id=st.session_state.artist_id)
     elif st.session_state.radio_type == 'Genre':
         if 'genre_selection' in st.session_state:
             show_genres = [st.session_state.genre_selection]
@@ -86,7 +87,9 @@ def radio_callback(album_limit=100):
                                                   subgenre = show_subgenres)
             if len(relevant_albums) > 0:
                 st.session_state.track_info = return_tracks(relevant_albums, album_limit=album_limit)
-    elif st.session_state.radio_type == 'Mood':
-        st.session_state.track_info = get_track_info_mood(mood=st.session_state.mood_selection, genres=st.session_state.mood_genre_selection)
+            # print(len(relevant_albums))
+            # print(len(st.session_state.track_info))
+    # elif st.session_state.radio_type == 'Mood':
+    #     st.session_state.track_info = get_track_info_mood(mood=st.session_state.mood_selection, genres=st.session_state.mood_genre_selection)
         
         

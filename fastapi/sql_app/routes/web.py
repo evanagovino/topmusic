@@ -1,16 +1,24 @@
 from ..database import get_db
 from .. import crud, models, schemas
-from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
-from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication
+from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter, Request, Header, Response, Cookie
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication, _get_apple_music_auth_header, verify_api_key
+from .session_utils import get_api_key, return_all_sessions_api_keys, get_user_token_developer_token, create_session, create_api_key, serializer, SESSION_COOKIE_NAME, SESSION_MAX_AGE
 from sqlalchemy.orm import Session
 import numpy as np
-from typing import List
+from typing import List, Optional
+from pathlib import Path
 import pandas as pd
 import json
 import datetime
+import os
+import requests
 
 
 router = APIRouter(prefix="/web", tags=["Web"])
+
+templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
 
 @router.get("/genres/", response_model=schemas.Genres)
 def get_distinct_genres(db: Session = Depends(get_db)):
@@ -42,7 +50,7 @@ def get_distinct_artists(db: Session = Depends(get_db)):
     db_artist = crud.get_artist_name_ids(db)
     x = {'artists': {}}
     for i in db_artist:
-        x['artists'][i.artist] = i.artist_id
+        x['artists'][i.artist_name] = i.artist_id
     return x
 
 @router.get("/artists_albums/", response_model=schemas.AlbumsList)
@@ -179,6 +187,7 @@ def get_relevant_albums(min_year: int,
                         publication: List[str] =Query([None]), 
                         list: List[str] = Query([None]), 
                         points_weight: float = 0.5,
+                        album_limit: int = 50,
                         db: Session = Depends(get_db)
                         ):
     """
@@ -186,16 +195,20 @@ def get_relevant_albums(min_year: int,
 
     Returned in dictionary format, used for Streamlit
     """
-    return pull_relevant_albums(db=db, 
-                                min_year=min_year,
-                                max_year=max_year, 
-                                genre=genre, 
-                                subgenre=subgenre, 
-                                publication=publication, 
-                                list=list,
-                                points_weight=points_weight,
-                                album_uri_required=False
-                                )
+    output = {'albums': {}}
+    x = pull_relevant_albums(db=db, 
+                             min_year=min_year,
+                             max_year=max_year, 
+                             genre=genre, 
+                             subgenre=subgenre, 
+                             publication=publication, 
+                             list=list,
+                             points_weight=points_weight,
+                             album_uri_required=False
+                            )
+    for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True)[:album_limit]:
+        output['albums'][value[0]] = value[1]
+    return output
 
 @router.get("/get_similar_artists_by_publication/{artist_id}", response_model=schemas.Artists)
 def get_similar_artists_by_publication(artist_id: str, 
@@ -486,7 +499,9 @@ def get_track_data(track_id: str,
 def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
                                         n_accolades: int = 10,
                                         album_limit: int = 50,
-                                        db: Session = Depends(get_db)):
+                                        db: Session = Depends(get_db),
+                                        exclude_accolades_only_one_point: bool = True
+                                        ):
     """
     Return a dictionary of album accolades given a list of album URIs
 
@@ -499,20 +514,26 @@ def get_album_accolades_multiple_albums(album_ids: List[str] = Query([None]),
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     x = {'albums': {}}
     for position, value in enumerate(db_albums):
-        album_uri = getattr(value, 'album_uri')
-        if album_uri in x['albums']:
+        album_key = getattr(value, 'album_key')
+        if album_key in x['albums']:
             pass
         else:
-            x['albums'][album_uri] = []
+            x['albums'][album_key] = []
         new_value = {}
         for feature in ['rank', 'points', 'publication', 'list']:
             new_value[feature] = getattr(value, feature)
-        x['albums'][album_uri].append(new_value)
-    #print(x['albums'])
+        x['albums'][album_key].append(new_value)
     for album in x['albums']:
         new_dict = []
         counting_value = 0
+        if len(x['albums'][album]) == 1:
+            skip_low_points_value = False
+        else:
+            skip_low_points_value = exclude_accolades_only_one_point
         for value in sorted(x['albums'][album], key=lambda x: x['points'], reverse=True):
+            if skip_low_points_value:
+                if value['points'] == 1:
+                    continue
             new_dict.append(value)
             counting_value += 1
             if counting_value >= n_accolades:
@@ -598,3 +619,129 @@ def get_tracks_by_features(
     features = unskew_features_function(features)
     _, _, tracks = unpack_tracks(track_selection, features)
     return tracks
+
+@router.get("/get_apple_developer_token/")
+def get_apple_developer_token(api_key: str = Depends(verify_api_key)):
+    return _get_apple_music_auth_header(api_key)
+
+@router.get("/get_apple_music_auth_page/", response_class=HTMLResponse)
+def get_apple_music_auth_page(request: Request):
+    api_key = os.getenv('API_KEY')
+    developer_token_dict = _get_apple_music_auth_header(api_key)
+    developer_token = developer_token_dict['developer_token']
+    return templates.TemplateResponse("apple_music_auth.html", 
+    {"request": request, 
+    "developer_token": developer_token
+    })
+
+@router.post("/create_session_endpoint/")
+async def create_session_endpoint(token_request: schemas.UserTokenRequest, response: Response):
+    """
+    Create a session after successful authorization and set secure cookie
+    """
+    user_token = token_request.user_token
+    if not user_token:
+        raise HTTPException(status_code=400, detail="No user token provided")
+
+    session_id = create_session(user_token)
+    api_key = create_api_key(session_id)
+    signed_session = serializer.dumps(session_id)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME, 
+        value=signed_session,
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/"
+        )
+    return {
+        "success": True, 
+        "message": "Session created successfully",
+        "redirect_url": f"http://localhost:8501/?api_key={api_key}"
+        }
+
+# @router.get('/verify_session_api_key/')
+# async def verify_session_api_key(x_api_key: str = Header(None)):
+#     """
+#     Verify the API key
+#     """
+#     return get_api_key(x_api_key)
+
+# @router.get("/get_user_token/")
+# async def get_user_token(session_data: dict = Depends(get_current_session)):
+#     """
+#     Retrieve the stored user token for API calls
+#     """
+#     return {
+#         "user_token": session_data["user_token"],
+#         "created_at": session_data["created_at"].isoformat()
+#     }
+
+# @router.get("/get_session_status/")
+# async def get_session_status(session_cookie: Optional[str] = Cookie(None, alias=SESSION_COOKIE_NAME)):
+#     """
+#     Check if the session is valid
+#     """
+#     if not session_cookie:
+#         return {
+#             "authenticated": False
+#         }
+#     try:
+#         session_id = serializer.loads(session_cookie, max_age=SESSION_MAX_AGE)
+#         session_data = get_session(session_id)
+#         if session_data:
+#             return {
+#                 "authenticated": True,
+#                 "created_at": session_data["created_at"].isoformat(),
+#                 "expires_at": session_data["expires_at"].isoformat()
+#             }
+#     except:
+#         pass
+    
+#     return {"authenticated": False}
+
+@router.get("/get_all_api_keys/")
+async def get_all_api_keys():
+    """
+    Get all API keys
+    """
+    return return_all_sessions_api_keys()
+
+@router.get("/get_user_apple_library/")
+async def get_user_apple_library(session_info: dict = Depends(get_api_key)):
+    USER_TOKEN, DEVELOPER_TOKEN = get_user_token_developer_token(session_info)
+    headers = {
+        'Authorization': f'Bearer {DEVELOPER_TOKEN}',
+        'Music-User-Token': USER_TOKEN
+    }
+    response = requests.get('https://api.music.apple.com/v1/me/library/songs?limit=1', headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    return None
+
+@router.post("/create_apple_music_playlist/")
+async def create_apple_music_playlist(session_info: dict = Depends(get_api_key), tracks: List[str] = Query([None]), playlist_name: str = Query(None)):
+    """
+    Create an Apple Music playlist
+    """
+    USER_TOKEN, DEVELOPER_TOKEN = get_user_token_developer_token(session_info)
+    headers = {
+        'Authorization': f'Bearer {DEVELOPER_TOKEN}',
+        'Music-User-Token': USER_TOKEN,
+        'Content-Type': 'application/json'
+    }
+    tracks_data = [{"id": track, "type": "songs"} for track in tracks]
+
+    playlist_name = f'{playlist_name} Radio'
+    playlist_json = {
+    "attributes": {"description": "created via TopMusic", 
+                    "name": playlist_name},
+    "relationships": {"tracks": {"data": tracks_data}}
+    }
+
+    response = requests.post('https://api.music.apple.com/v1/me/library/playlists', headers=headers, json=playlist_json)
+    if response.status_code == 201:
+        return response.json()
+    else:
+        return None
