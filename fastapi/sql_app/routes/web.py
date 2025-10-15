@@ -658,7 +658,8 @@ async def create_session_endpoint(token_request: schemas.UserTokenRequest, respo
     return {
         "success": True, 
         "message": "Session created successfully",
-        "redirect_url": f"http://localhost:8501/?api_key={api_key}"
+        # "redirect_url": f"https://localhost:8501/?api_key={api_key}"
+        "redirect_url": f"https://topmusic.lol/?api_key={api_key}"
         }
 
 # @router.get('/verify_session_api_key/')
