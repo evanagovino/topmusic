@@ -3,7 +3,7 @@ from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
-from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums_new, unpack_albums_new, return_tracks_new, normalize_weights
+from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums, unpack_albums_new, return_tracks_new, normalize_weights
 from .llm_utils import test_llm, get_all_tracks, normalize_column_manual, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/app", tags=["Mobile App"])
 
 @router.get("/genres/", response_model=schemas.GenresList)
 def get_distinct_genres(db: Session = Depends(get_db)):
-    db_genre = crud.get_unique_genres_new(db)
+    db_genre = crud.get_unique_genres(db)
     x = {'genres': []}
     for i in db_genre:
         genre = i[0]
@@ -33,7 +33,7 @@ def get_distinct_genres(db: Session = Depends(get_db)):
 
 @router.get("/artists/", response_model=schemas.ArtistsList)
 def get_distinct_artists(db: Session = Depends(get_db)):
-    db_artist = crud.get_artist_name_ids_new(db)
+    db_artist = crud.get_artist_name_ids(db)
     x = {'artists': []}
     for i in db_artist:
         x['artists'].append({'name': i.artist_name, 'id': i.artist_id})
@@ -67,16 +67,16 @@ def get_relevant_albums(min_year: int,
 
     Returned in list format, used for Flutterflow
     """
-    x = pull_relevant_albums_new(db=db, 
-                                 min_year=min_year,
-                                 max_year=max_year, 
-                                 genre=genre, 
-                                 subgenre=subgenre, 
-                                 publication=publication, 
-                                 list=list,
-                                 points_weight=points_weight,
-                                 album_uri_required=False
-                                 )
+    x = pull_relevant_albums(db=db, 
+                             min_year=min_year,
+                             max_year=max_year, 
+                             genre=genre, 
+                             subgenre=subgenre, 
+                             publication=publication, 
+                             list=list,
+                             points_weight=points_weight,
+                             album_uri_required=False
+                             )
     new_dict = []
     if order_by_recency:
         for value in sorted(x['albums'].items(), key=lambda x: x[1]['album_key'], reverse=True)[:album_limit]:
@@ -332,16 +332,16 @@ def get_recommended_tracks(artist_id: str = None,
         return track_choices
 
     elif genre:
-        x = pull_relevant_albums_new(db=db, 
-                                     min_year=2000,
-                                     max_year=2025, 
-                                     genre=[genre], 
-                                     subgenre=[''], 
-                                     publication=[''], 
-                                     list=[''],
-                                     points_weight=0.5,
-                                     album_uri_required=False
-                                     )
+        x = pull_relevant_albums(db=db, 
+                                 min_year=2000,
+                                 max_year=2025, 
+                                 genre=[genre], 
+                                 subgenre=[''], 
+                                 publication=[''], 
+                                 list=[''],
+                                 points_weight=0.5,
+                                 album_uri_required=False
+                                 )
         new_dict = {}
         for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
             new_dict[value[0]] = value[1]

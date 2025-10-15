@@ -253,14 +253,14 @@ def get_random_track(db, weight_by_popularity = True):
     return track_choice
 
 def pull_relevant_albums(db, 
-                         min_year, 
-                         max_year, 
-                         genre, 
-                         subgenre, 
-                         publication, 
-                         list,
-                         points_weight,
-                         album_uri_required):
+                             min_year, 
+                             max_year, 
+                             genre, 
+                             subgenre, 
+                             publication, 
+                             list,
+                             points_weight,
+                             album_uri_required):
     db_albums = crud.get_relevant_albums(db, 
                                          min_year=min_year, 
                                          max_year=max_year, 
@@ -270,28 +270,6 @@ def pull_relevant_albums(db,
                                          list=list,
                                          album_uri_required=album_uri_required
                                          )
-    if db_albums is None:
-        raise HTTPException(status_code=404, detail="No albums that match criteria")
-    return unpack_albums(db_albums, points_weight)
-
-def pull_relevant_albums_new(db, 
-                             min_year, 
-                             max_year, 
-                             genre, 
-                             subgenre, 
-                             publication, 
-                             list,
-                             points_weight,
-                             album_uri_required):
-    db_albums = crud.get_relevant_albums_new(db, 
-                                             min_year=min_year, 
-                                             max_year=max_year, 
-                                             genre=genre, 
-                                             subgenre=subgenre, 
-                                             publication=publication, 
-                                             list=list,
-                                             album_uri_required=album_uri_required
-                                             )
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     return unpack_albums_new(db_albums, points_weight)

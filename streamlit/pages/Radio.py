@@ -2,7 +2,7 @@ import datetime
 import streamlit as st
 from callbacks import *
 from query_commands import *
-from spotipy_helper import *
+from apple_music_helper import *
 
 st.set_page_config('Top Albums', layout="wide")
 
@@ -12,8 +12,7 @@ feature_list = ['danceability', 'energy', 'instrumentalness', 'valence', 'tempo'
 
 initiate_genres()
 initiate_artists()
-
-spotipy_setup()
+st.session_state.current_session_status = get_session_status()
 
 if 'available_albums' not in st.session_state:
     st.session_state.available_albums = ['All']
@@ -31,7 +30,8 @@ with st.sidebar:
     with col2:
         st.markdown('[Disconnect](https://topmusic.page)')
     radio_type = st.selectbox('Choose a Radio Type',
-                              ['Genre', 'Artist', 'Mood'],
+                            #   ['Genre', 'Artist', 'Mood'],
+                            ['Genre', 'Artist'],
                               key='radio_type',
                               on_change=radio_type_callback)
     if st.session_state.radio_type == 'Genre':
@@ -59,7 +59,6 @@ with st.sidebar:
                                 index=0,
                                 key='max_year')
         show_years = list(range(min_year, max_year + 1))
-        text_year = f'{min_year} - {max_year}'
     elif st.session_state.radio_type == 'Artist':
         artist = st.selectbox('Choose an Artist',
                             st.session_state.all_artists,
@@ -73,36 +72,6 @@ with st.sidebar:
         else:
             if 'artist_id' not in st.session_state:
                 artist_callback()
-        album = st.selectbox('Choose an Album',
-                            st.session_state.available_albums,
-                            key='album_selection',
-                            on_change=album_callback
-                            )
-        if st.session_state.album_selection == 'All':
-            del st.session_state['album_selection']
-            if 'album_id' in st.session_state:
-                del st.session_state['album_id']
-        else:
-            if 'album_id' not in st.session_state:
-                album_callback()
-        song = st.selectbox('Choose a Song',
-                            st.session_state.available_tracks,
-                            key='song_selection',
-                            on_change=song_callback
-                            )
-        if st.session_state.song_selection == 'All':
-            del st.session_state['song_selection']
-            if 'track_id' in st.session_state:
-                del st.session_state['track_id']
-        else:
-            if 'track_id' not in st.session_state:
-                song_callback()
-    elif st.session_state.radio_type == 'Mood':
-        mood = st.selectbox('Choose a Mood',
-                            ['Chill','Focus', 'Soundscape'],
-                            key='mood_selection'
-                            )
-        mood_genres = st.multiselect('Genres', st.session_state.all_genres, key='mood_genre_selection')
 if 'song_selection' in st.session_state:
     display = st.session_state.song_selection
 elif 'album_selection' in st.session_state:
@@ -113,8 +82,6 @@ elif 'subgenre_selection' in st.session_state:
     display = st.session_state.subgenre_selection
 elif 'genre_selection' in st.session_state:
     display = st.session_state.genre_selection
-elif 'mood_selection' in st.session_state:
-    display = st.session_state.mood_selection
 else:
     display = None
 playback_settings = st.expander('Playback Settings', expanded=False)
@@ -138,60 +105,18 @@ with st.sidebar:
         if generate:
             st.session_state.generate = True
             radio_callback(album_limit=album_limit)
-            st.session_state.track_uris = ['spotify:track:' + i for i in list(st.session_state.track_info.index)]
+            st.session_state.track_uris = [i for i in list(st.session_state.track_info['track_id'])]
             if 'playlist_id' in st.session_state:
                 del st.session_state['playlist_id']
         if st.session_state.generate:
-            if 'spotify' in st.session_state:
-                play_songs = st.button('Play songs via Spotify', 
-                                    help="Play songs based on above parameters",
-                                    )
-                create_playlist = st.button('Export playlist to Spotify', help="Export current playlist to Spotify")
-                if play_songs:
-                    spotipy_start_playback(uris=st.session_state.track_uris)
-                    st.session_state.playlist_id = None
-                elif create_playlist:
-                    if radio_type == 'Genre':
-                        spotify_create_playlist(tracks=st.session_state.track_uris,
-                                                year=text_year, 
-                                                genre=display, 
-                                                publication='', 
+            if st.session_state.current_session_status:
+                create_playlist = st.button('Export playlist to Apple Music', help="Export current playlist to Apple Music")
+                if create_playlist:
+                    apple_music_create_playlist(tracks=st.session_state.track_uris,
+                                                playlist_name=display
                                                 )
-                    elif radio_type == 'Artist':
-                        spotify_create_playlist(tracks=st.session_state.track_uris,
-                                                year='', 
-                                                genre=display, 
-                                                publication='', 
-                                                )
-                    elif radio_type == 'Mood':
-                        spotify_create_playlist(tracks=st.session_state.track_uris,
-                                                year='', 
-                                                genre=display, 
-                                                publication='', 
-                                                )
-    if 'spotify' in st.session_state:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            previous_song = st.button('\u23EA')
-        with col2:
-            resume_song = st.button('\u25B6\u23F8')
-        with col3:
-            next_song = st.button('\u23E9')
-        if resume_song:
-            x = spotipy_current_playback()
-            is_playing = False
-            if x:
-                is_playing = x['is_playing']
-            if is_playing:
-                spotipy_pause_playback()
-            else:
-                spotipy_start_playback()
-        if previous_song:
-            spotipy_previous_track()
-        if next_song:
-            spotipy_next_track()
 
-spotify_player()
+apple_music_player()
 
 display_songs = st.expander('Display Songs', expanded=False)
 with display_songs:
