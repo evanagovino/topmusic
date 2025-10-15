@@ -159,7 +159,7 @@
                 showSpinner(true);
                 showStatus('Creating secure session...', 'info');
                 
-                const response = await fetch('/web/create_session_endpoint', {
+                const response = await fetch('/web/create_session_endpoint/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
