@@ -663,7 +663,7 @@ async def create_session_endpoint(token_request: schemas.UserTokenRequest, respo
         }
 
 @router.get("/get_all_api_keys/")
-async def get_all_api_keys():
+async def get_all_api_keys(api_key: str = Depends(verify_api_key)):
     """
     Get all API keys
     """
