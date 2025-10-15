@@ -662,46 +662,6 @@ async def create_session_endpoint(token_request: schemas.UserTokenRequest, respo
         "redirect_url": f"https://topmusic.lol/?api_key={api_key}"
         }
 
-# @router.get('/verify_session_api_key/')
-# async def verify_session_api_key(x_api_key: str = Header(None)):
-#     """
-#     Verify the API key
-#     """
-#     return get_api_key(x_api_key)
-
-# @router.get("/get_user_token/")
-# async def get_user_token(session_data: dict = Depends(get_current_session)):
-#     """
-#     Retrieve the stored user token for API calls
-#     """
-#     return {
-#         "user_token": session_data["user_token"],
-#         "created_at": session_data["created_at"].isoformat()
-#     }
-
-# @router.get("/get_session_status/")
-# async def get_session_status(session_cookie: Optional[str] = Cookie(None, alias=SESSION_COOKIE_NAME)):
-#     """
-#     Check if the session is valid
-#     """
-#     if not session_cookie:
-#         return {
-#             "authenticated": False
-#         }
-#     try:
-#         session_id = serializer.loads(session_cookie, max_age=SESSION_MAX_AGE)
-#         session_data = get_session(session_id)
-#         if session_data:
-#             return {
-#                 "authenticated": True,
-#                 "created_at": session_data["created_at"].isoformat(),
-#                 "expires_at": session_data["expires_at"].isoformat()
-#             }
-#     except:
-#         pass
-    
-#     return {"authenticated": False}
-
 @router.get("/get_all_api_keys/")
 async def get_all_api_keys():
     """

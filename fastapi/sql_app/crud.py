@@ -52,20 +52,6 @@ def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenre
         base_query = base_query.filter(~models.TrackFeatures.time_signature_clean.in_(excluded_time_signatures))
     return base_query.all()
 
-# def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, album_uri_required: bool):
-#     base_query = db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.album_url, models.RelevantAlbums.album_key, models.RelevantAlbums.spotify_deeplink, models.RelevantAlbums.image_url, models.RelevantAlbums.artist, models.RelevantAlbums.album, models.RelevantAlbums.genre, models.RelevantAlbums.subgenre, models.RelevantAlbums.year, func.sum(models.RelevantAlbums.points), func.avg(models.RelevantAlbums.total_points)).filter(models.RelevantAlbums.year >= min_year, models.RelevantAlbums.year <= max_year)
-#     if len(genre[0]) > 0:
-#         base_query = base_query.filter(models.RelevantAlbums.genre.in_(genre))
-#     if len(subgenre[0]) > 0:
-#         base_query = base_query.filter(models.RelevantAlbums.subgenre.in_(subgenre))
-#     if len(list[0]) > 0:
-#         base_query = base_query.filter(models.RelevantAlbums.list.in_(list))
-#     if len(publication[0]) > 0:
-#         base_query = base_query.filter(models.RelevantAlbums.publication.in_(publication))
-#     if album_uri_required:
-#         base_query = base_query.filter(models.RelevantAlbums.album_uri.isnot(None))
-#     return base_query.group_by(models.RelevantAlbums.album_uri, models.RelevantAlbums.album_url, models.RelevantAlbums.album_key, models.RelevantAlbums.spotify_deeplink, models.RelevantAlbums.image_url, models.RelevantAlbums.artist, models.RelevantAlbums.album, models.RelevantAlbums.genre, models.RelevantAlbums.subgenre, models.RelevantAlbums.year).all()
-
 def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, album_uri_required: bool):
     base_query = db.query(models.RelevantAlbums.year, 
                           models.RelevantAlbums.album_key, 
@@ -93,9 +79,6 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
 def get_album_info(db: Session, album_uris: list):
     base_query = db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.album_url, models.RelevantAlbums.album_key, models.RelevantAlbums.spotify_deeplink, models.RelevantAlbums.image_url, models.RelevantAlbums.artist, models.RelevantAlbums.album, models.RelevantAlbums.genre, models.RelevantAlbums.subgenre, models.RelevantAlbums.year, func.sum(models.RelevantAlbums.points), func.avg(models.RelevantAlbums.total_points)).filter(models.RelevantAlbums.album_uri.in_(album_uris))
     return base_query.group_by(models.RelevantAlbums.album_uri, models.RelevantAlbums.album_url, models.RelevantAlbums.album_key, models.RelevantAlbums.spotify_deeplink, models.RelevantAlbums.image_url, models.RelevantAlbums.artist, models.RelevantAlbums.album, models.RelevantAlbums.genre, models.RelevantAlbums.subgenre, models.RelevantAlbums.year).all()
-
-# def get_album_accolades(db: Session, album_id: str):
-#     return db.query(models.RelevantAlbums.album_uri, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_uri == album_id).all()
 
 def get_album_accolades(db: Session, album_id: str):
     return db.query(models.RelevantAlbums.album_key, models.RelevantAlbums.rank, models.RelevantAlbums.points, models.RelevantAlbums.publication, models.RelevantAlbums.list).filter(models.RelevantAlbums.album_key == album_id).all()

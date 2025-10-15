@@ -155,26 +155,6 @@ class TrackFeatures(Base):
     time_signature_raw = Column(Float)
     tempo_mapped = Column(Float)
 
-# class RelevantAlbums(Base):
-#     __tablename__ = "music_lists"
-#     __table_args__ = {"schema": "dbt"}
-
-#     album_uri = Column(String, primary_key = True)
-#     album_url = Column(String)
-#     album_key = Column(Integer)
-#     spotify_deeplink = Column(String)
-#     image_url = Column(String)
-#     artist = Column(String)
-#     album = Column(String)
-#     genre = Column(String)
-#     subgenre = Column(String)
-#     publication = Column(String)
-#     rank = Column(String)
-#     list = Column(String)
-#     year = Column(Integer)
-#     points = Column(Integer)
-#     total_points = Column(Integer)
-
 class RelevantAlbums(Base):
     __tablename__ = "dim_music_lists"
     __table_args__ = {"schema": "dbt"}
