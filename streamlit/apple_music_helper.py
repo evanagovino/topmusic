@@ -17,7 +17,8 @@ def apple_music_player():
         if st.session_state.current_session_status:
             st.write('Successfully authenticated with Apple Music')
         else:
-            auth_url = 'http://localhost:8008/web/get_apple_music_auth_page/' # note that this URL is currently hard-coded
+            # auth_url = 'http://localhost:8008/web/get_apple_music_auth_page/' # note that this URL is currently hard-coded
+            auth_url = 'http://topmusic.lol/web/get_apple_music_auth_page/' # note that this URL is currently hard-coded
             link = f'[Authenticate Here to Create Custom Playlists]({auth_url})'
             st.markdown(link, unsafe_allow_html=True)
 
