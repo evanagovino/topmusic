@@ -385,7 +385,7 @@ def get_album_accolades(album_id: str = Query(None),
     """
     Return a dictionary of album accolades given a single album URI
     """
-    db_albums = crud.get_album_accolades_new(db, album_id=album_id)
+    db_albums = crud.get_album_accolades(db, album_id=album_id)
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     if len(db_albums) == 1:
