@@ -44,6 +44,12 @@ class TracksList(BaseModel):
     class Config:
         orm_mode = True
 
+class Lists(BaseModel):
+    lists: list
+
+    class Config:
+        orm_mode = True
+
 class TracksLLMResponse(BaseModel):
     tracks: list
     explanation: str

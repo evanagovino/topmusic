@@ -47,15 +47,8 @@ with st.sidebar:
     else:
         show_subgenres = None
     show_publications = st.multiselect('Publications', st.session_state.all_publications, default=None)
-    if len(show_publications) > 0:
-        lists = []
-        for publication in show_publications:
-            lists += st.session_state.publications_payload[publication]
-        lists = sorted(lists)
-        show_lists = st.multiselect('Lists', lists, default=None)
-    else:
-        show_publications = None
-        show_lists = None
+    st.session_state.all_lists = get_relevant_lists(min_year, max_year, show_genres, show_subgenres, show_publications)
+    show_lists = st.multiselect('Lists', st.session_state.all_lists, default=None)
 relevant_albums = get_relevant_albums(min_year, max_year, show_genres, show_subgenres, show_publications, show_lists)
 with st.sidebar:
     if st.session_state.current_session_status:

@@ -634,6 +634,32 @@ def get_apple_music_auth_page(request: Request):
     "developer_token": developer_token
     })
 
+@router.get("/get_relevant_lists/", response_model=schemas.Lists)
+def get_relevant_lists(min_year: int, 
+                        max_year: int, 
+                        genre: List[str] = Query([None]), 
+                        subgenre: List[str] = Query([None]), 
+                        publication: List[str] = Query([None]),
+                        db: Session = Depends(get_db),
+                        ignore_monthly_lists: bool = False
+                        ):
+    db_lists = crud.get_relevant_lists(db, min_year=min_year, max_year=max_year, genre=genre, subgenre=subgenre, publication=publication)
+    if db_lists is None:
+        raise HTTPException(status_code=404, detail="No lists that match criteria")
+    elif len(db_lists) == 0:
+        raise HTTPException(status_code=404, detail="No lists that match criteria")
+    x = {'lists': []}
+    for list in db_lists:
+        if ignore_monthly_lists:
+            if 'January' in list.list or 'February' in list.list or 'March' in list.list or 'April' in list.list or 'May' in list.list or 'June' in list.list or 'July' in list.list or 'August' in list.list or 'September' in list.list or 'October' in list.list or 'November' in list.list or 'December' in list.list or 'Spring' in list.list or 'Summer' in list.list or 'Fall' in list.list or 'Winter' in list.list: # ew lol
+                continue
+            else:
+                x['lists'].append(list.list)
+        else:
+            x['lists'].append(list.list)
+    x['lists'] = sorted(x['lists'])
+    return x
+
 @router.post("/create_session_endpoint/")
 async def create_session_endpoint(token_request: schemas.UserTokenRequest, response: Response):
     """
