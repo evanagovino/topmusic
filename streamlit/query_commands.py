@@ -249,6 +249,7 @@ def get_relevant_albums(min_year: int,
         base_api += '&publication='
     if list:
         for item in list:
+            item = item.replace('&', '%26')
             base_api += f'&list={item}'
     else:
         base_api += '&list='
@@ -445,11 +446,13 @@ def get_relevant_lists(min_year: int,
         base_url += '&ignore_monthly_lists=False'
     if genre:
         for g in genre:
+            g = g.replace('&', '%26')
             base_url += f'&genre={g}'
     else:
         base_url += '&genre='
     if subgenre:
         for s in subgenre:
+            s = s.replace('%26', '&')
             base_url += f'&subgenre={s}'
     else:
         base_url += '&subgenre='

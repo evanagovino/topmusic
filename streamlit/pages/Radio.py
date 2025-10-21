@@ -30,7 +30,6 @@ with st.sidebar:
     with col2:
         st.markdown('[Disconnect](https://topmusic.page)')
     radio_type = st.selectbox('Choose a Radio Type',
-                            #   ['Genre', 'Artist', 'Mood'],
                             ['Genre', 'Artist', 'Custom Prompt'],
                               key='radio_type',
                               on_change=radio_type_callback)
