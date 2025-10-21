@@ -31,7 +31,7 @@ with st.sidebar:
         st.markdown('[Disconnect](https://topmusic.page)')
     radio_type = st.selectbox('Choose a Radio Type',
                             #   ['Genre', 'Artist', 'Mood'],
-                            ['Genre', 'Artist'],
+                            ['Genre', 'Artist', 'Custom Prompt'],
                               key='radio_type',
                               on_change=radio_type_callback)
     if st.session_state.radio_type == 'Genre':
@@ -72,6 +72,10 @@ with st.sidebar:
         else:
             if 'artist_id' not in st.session_state:
                 artist_callback()
+    elif st.session_state.radio_type == 'Custom Prompt':
+        custom_prompt = st.text_input('Enter a Custom Prompt to Create a Playlist', key='custom_prompt')
+        if st.session_state.custom_prompt == '':
+            del st.session_state['custom_prompt']
 if 'song_selection' in st.session_state:
     display = st.session_state.song_selection
 elif 'album_selection' in st.session_state:
@@ -82,6 +86,8 @@ elif 'subgenre_selection' in st.session_state:
     display = st.session_state.subgenre_selection
 elif 'genre_selection' in st.session_state:
     display = st.session_state.genre_selection
+elif 'custom_prompt' in st.session_state:
+    display = st.session_state.custom_prompt
 else:
     display = None
 playback_settings = st.expander('Playback Settings', expanded=False)

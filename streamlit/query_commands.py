@@ -422,3 +422,41 @@ def get_recommended_tracks(artist_id: str):
         return pd.DataFrame(tracks.json()['tracks'])
     else:
         st.write('Error getting recommended tracks')
+
+def get_recommended_tracks_from_custom_prompt(custom_prompt: str):
+    base_url = f'{fastapi_url}/app/create_playlist_from_user_prompt/?user_request={custom_prompt}'
+    tracks = requests.get(base_url)
+    if tracks.status_code == 200:
+        return pd.DataFrame(tracks.json()['tracks'])
+    else:
+        st.write('Error getting recommended tracks from custom prompt')
+
+@st.cache_data(ttl=600)
+def get_relevant_lists(min_year: int, 
+                        max_year: int, 
+                        genre: list = None, 
+                        subgenre: list = None, 
+                        publication: list = None
+                        ) -> list:
+    base_url = f'{fastapi_url}/web/get_relevant_lists/?min_year={min_year}&max_year={max_year}'
+    if min_year != max_year:
+        base_url += '&ignore_monthly_lists=True'
+    else:
+        base_url += '&ignore_monthly_lists=False'
+    if genre:
+        for g in genre:
+            base_url += f'&genre={g}'
+    else:
+        base_url += '&genre='
+    if subgenre:
+        for s in subgenre:
+            base_url += f'&subgenre={s}'
+    else:
+        base_url += '&subgenre='
+    if publication:
+        for p in publication:
+            base_url += f'&publication={p}'
+    else:
+        base_url += '&publication='
+    lists = requests.get(base_url)
+    return lists.json()['lists']
