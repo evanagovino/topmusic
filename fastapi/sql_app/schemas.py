@@ -85,3 +85,8 @@ class AlbumsList(BaseModel):
 
 class UserTokenRequest(BaseModel):
     user_token: str
+
+class AudioDescription(BaseModel):
+    album_id: str
+    audio_descriptors: list
+    explanation: str

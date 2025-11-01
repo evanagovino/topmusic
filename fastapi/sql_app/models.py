@@ -15,11 +15,18 @@ class FctAlbums(Base):
     eligible_points = Column(Integer)
     album_points = Column(Integer)
     album_points_percentage = Column(Float)
+    spotify_danceability_clean = Column(Float)
+    spotify_energy_clean = Column(Float)
+    spotify_instrumentalness_clean = Column(Float)
+    spotify_valence_clean = Column(Float)
+    spotify_tempo_clean = Column(Float)
     publication_data = Column(String)
     image_url = Column(String)
     apple_music_album_id = Column(String)
     apple_music_album_url = Column(String)
     spotify_album_uri = Column(String)
+    apple_music_editorial_notes_short = Column(String)
+    apple_music_editorial_notes_standard = Column(String)
 
 class FctTracks(Base):
     __tablename__ = 'fct_tracks'

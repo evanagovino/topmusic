@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums, unpack_albums_new, return_tracks_new, normalize_weights
-from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features
+from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features, generate_audio_descriptors_using_features
 import numpy as np
 import pandas as pd
 import json
@@ -450,10 +450,69 @@ def get_album_info(album_id: str, db: Session = Depends(get_db)):
                             'subgenre': i.subgenre,
                             'year': i.year,
                             'image_url': i.image_url,
+                            'danceability': i.spotify_danceability_clean,
+                            'energy': i.spotify_energy_clean,
+                            'instrumentalness': i.spotify_instrumentalness_clean,
+                            'valence': i.spotify_valence_clean,
+                            'tempo': i.spotify_tempo_clean,
                             'apple_music_album_id': i.apple_music_album_id,
                             'apple_music_album_url': i.apple_music_album_url,
-                            'spotify_album_uri': i.spotify_album_uri})
+                            'spotify_album_uri': i.spotify_album_uri,
+                            'apple_music_editorial_notes_short': i.apple_music_editorial_notes_short,
+                            'apple_music_editorial_notes_standard': i.apple_music_editorial_notes_standard})
     return x
+
+@router.get("/get_mean_standard_deviation_of_audio_features/", response_model=schemas.AlbumsList)
+def get_mean_standard_deviation_of_audio_features(db: Session = Depends(get_db)):
+    db_audio_features = crud.get_mean_standard_deviation_of_audio_features(db)
+    x = {'albums': []}
+    for i in db_audio_features:
+        x['albums'].append({'danceability': i[0],
+        'danceability_std': i[1],
+        'energy': i[2],
+        'energy_std': i[3],
+        'instrumentalness': i[4],
+        'instrumentalness_std': i[5],
+        'valence': i[6],
+        'valence_std': i[7],
+        'tempo': i[8],
+        'tempo_std': i[9]})
+    return x
+
+@router.get("/get_descriptor_buckets_for_album/{album_id}", response_model=schemas.AudioDescription)
+def get_descriptor_buckets_for_album(album_id: str, db: Session = Depends(get_db)):
+    #Get Mean and Standard Deviation of Audio Features
+    db_audio_features = crud.get_mean_standard_deviation_of_audio_features(db)
+    if db_audio_features is None:
+        raise HTTPException(status_code=404, detail="No audio features found")
+    audio_features = {}
+    audio_features['danceability'] = db_audio_features[0][0]
+    audio_features['danceability_std'] = db_audio_features[0][1]
+    audio_features['energy'] = db_audio_features[0][2]
+    audio_features['energy_std'] = db_audio_features[0][3]
+    audio_features['instrumentalness'] = db_audio_features[0][4]
+    audio_features['instrumentalness_std'] = db_audio_features[0][5]
+    audio_features['valence'] = db_audio_features[0][6]
+    audio_features['valence_std'] = db_audio_features[0][7]
+    audio_features['tempo'] = db_audio_features[0][8]
+    audio_features['tempo_std'] = db_audio_features[0][9]
+    #Get Descriptor Buckets for Album
+    db_album = crud.get_album_info_new_albums_table(db=db, album_key=album_id)
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="Album not found")
+    album_features = {}
+    album_features['danceability'] = db_album[0].spotify_danceability_clean
+    album_features['energy'] = db_album[0].spotify_energy_clean
+    album_features['instrumentalness'] = db_album[0].spotify_instrumentalness_clean
+    album_features['valence'] = db_album[0].spotify_valence_clean
+    album_features['tempo'] = db_album[0].spotify_tempo_clean
+    album_features['genre'] = db_album[0].genre
+    album_features['subgenre'] = db_album[0].subgenre
+    album_features['apple_music_editorial_notes_short'] = db_album[0].apple_music_editorial_notes_short
+    album_features['apple_music_editorial_notes_standard'] = db_album[0].apple_music_editorial_notes_standard
+    audio_descriptors, explanation = generate_audio_descriptors_using_features(album_features, audio_features)
+    print('RESPONSE FROM LLM', audio_descriptors, explanation)
+    return {'album_id': album_id, 'audio_descriptors': audio_descriptors, 'explanation': explanation}
 
 @router.get("/create_playlist_from_user_prompt/", response_model=schemas.TracksLLMResponse)
 def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Query(['']), weigh_by_popularity: bool = True, song_limit: int = 50, debug: bool = False, db: Session = Depends(get_db)):
