@@ -450,33 +450,9 @@ def get_album_info(album_id: str, db: Session = Depends(get_db)):
                             'subgenre': i.subgenre,
                             'year': i.year,
                             'image_url': i.image_url,
-                            'danceability': i.spotify_danceability_clean,
-                            'energy': i.spotify_energy_clean,
-                            'instrumentalness': i.spotify_instrumentalness_clean,
-                            'valence': i.spotify_valence_clean,
-                            'tempo': i.spotify_tempo_clean,
                             'apple_music_album_id': i.apple_music_album_id,
                             'apple_music_album_url': i.apple_music_album_url,
-                            'spotify_album_uri': i.spotify_album_uri,
-                            'apple_music_editorial_notes_short': i.apple_music_editorial_notes_short,
-                            'apple_music_editorial_notes_standard': i.apple_music_editorial_notes_standard})
-    return x
-
-@router.get("/get_mean_standard_deviation_of_audio_features/", response_model=schemas.AlbumsList)
-def get_mean_standard_deviation_of_audio_features(db: Session = Depends(get_db)):
-    db_audio_features = crud.get_mean_standard_deviation_of_audio_features(db)
-    x = {'albums': []}
-    for i in db_audio_features:
-        x['albums'].append({'danceability': i[0],
-        'danceability_std': i[1],
-        'energy': i[2],
-        'energy_std': i[3],
-        'instrumentalness': i[4],
-        'instrumentalness_std': i[5],
-        'valence': i[6],
-        'valence_std': i[7],
-        'tempo': i[8],
-        'tempo_std': i[9]})
+                            'spotify_album_uri': i.spotify_album_uri})
     return x
 
 @router.get("/get_descriptor_buckets_for_album/{album_id}", response_model=schemas.AudioDescription)
