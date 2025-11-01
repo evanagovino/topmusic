@@ -117,14 +117,6 @@ def get_all_tracks(db: Session, genres: List[str] = [], limit: int = None):
         x['tracks'].append(d)
     return x
 
-def normalize_column_manual(series):
-    """Manually normalize a column to 0-1 range"""
-    min_val = series.min()
-    max_val = series.max()
-    if max_val == min_val:  # Handle case where all values are the same
-        return pd.Series([0.5] * len(series), index=series.index)
-    return (series - min_val) / (max_val - min_val)
-
 def normalize_tempo_column(row):
     genre = row.get('genre')
     tempo = float(row.get('tempo', 0.5))
