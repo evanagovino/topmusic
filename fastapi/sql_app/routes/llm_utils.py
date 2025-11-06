@@ -332,7 +332,7 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
     prompt = f'''
     You are a music curator assigned to generate audio descriptors for an album using a combination of the album's listed genre and subgenre, its audio features and its metadata.
 
-    There are thirteen possible descriptors: ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Clubby', 'Wistful', 'Upbeat', 'Weird']
+    There are thirteen possible descriptors: ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird']
 
     These are brief descriptions of the descriptors:
     Visceral - raw, physical impact (seen in descriptions like "visceral power," punk, metal albums)
@@ -344,7 +344,7 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
     Gritty - rough-edged, street-level, unpolished (used for hip-hop, punk, garage rock)
     Sultry - sensual, smooth, seductive (appears in R&B and soul album descriptions)
     Cathartic - emotionally releasing, purging (used for intense personal albums)
-    Clubby - high-energy, club-ready (used for electronic, dance, and club-focused albums)
+    Groovy - smooth, soulful, danceable (used for R&B, soul, and funk albums)
     Wistful - longing, bittersweet nostalgia (common in folk, indie, and retrospective works)
     Upbeat - positive, uplifting, cheerful (used for pop, indie, and upbeat albums)
     Weird - strange, unusual, unexpected (used for experimental, avant-garde, and avant-pop albums)
