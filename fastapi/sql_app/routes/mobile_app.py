@@ -56,6 +56,7 @@ def get_relevant_albums(min_year: int,
                         subgenre: List[str] = Query([None]), 
                         publication: List[str] =Query([None]), 
                         list: List[str] = Query([None]), 
+                        mood: List[str] = Query([None]),
                         points_weight: float = 0.5,
                         randomize: bool = False,
                         order_by_recency: bool = False,
@@ -74,6 +75,7 @@ def get_relevant_albums(min_year: int,
                              subgenre=subgenre, 
                              publication=publication, 
                              list=list,
+                             mood=mood,
                              points_weight=points_weight,
                              album_uri_required=False
                              )
@@ -339,6 +341,7 @@ def get_recommended_tracks(artist_id: str = None,
                                  subgenre=[''], 
                                  publication=[''], 
                                  list=[''],
+                                 mood=[''],
                                  points_weight=0.5,
                                  album_uri_required=False
                                  )
@@ -452,7 +455,8 @@ def get_album_info(album_id: str, db: Session = Depends(get_db)):
                             'image_url': i.image_url,
                             'apple_music_album_id': i.apple_music_album_id,
                             'apple_music_album_url': i.apple_music_album_url,
-                            'spotify_album_uri': i.spotify_album_uri})
+                            'spotify_album_uri': i.spotify_album_uri,
+                            'moods': [mood.mood for mood in i.moods]})
     return x
 
 @router.get("/get_descriptor_buckets_for_album/{album_id}", response_model=schemas.AudioDescription)

@@ -1,5 +1,5 @@
-from sqlalchemy import func, text
-from sqlalchemy.orm import Session
+from sqlalchemy import func, text, cast, String, Integer
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from . import models, schemas
 
@@ -8,6 +8,9 @@ def get_unique_genres(db: Session):
 
 def get_unique_publications(db: Session):
     return db.query(models.RelevantAlbums.publication, models.RelevantAlbums.list).distinct().all()
+
+def get_unique_moods(db: Session):
+    return db.query(models.AlbumDescriptors.mood).distinct().all()
 
 def get_unique_artists_albums(db: Session):
     return db.query(models.TrackFeatures.artist, models.TrackFeatures.artist_id, models.TrackFeatures.album_name, models.TrackFeatures.album_id).distinct().all()
@@ -52,29 +55,83 @@ def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenre
         base_query = base_query.filter(~models.TrackFeatures.time_signature_clean.in_(excluded_time_signatures))
     return base_query.all()
 
-def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, album_uri_required: bool):
-    base_query = db.query(models.RelevantAlbums.year, 
-                          models.RelevantAlbums.album_key, 
-                          models.RelevantAlbums.artist, 
-                          models.RelevantAlbums.album, 
-                          models.RelevantAlbums.genre, 
-                          models.RelevantAlbums.subgenre, 
-                          models.RelevantAlbums.apple_music_album_id, 
-                          models.RelevantAlbums.apple_music_album_url,
-                          models.RelevantAlbums.spotify_album_uri,
-                          models.RelevantAlbums.image_url,
-                          func.sum(models.RelevantAlbums.points), func.avg(models.RelevantAlbums.total_points)).filter(models.RelevantAlbums.year >= min_year, models.RelevantAlbums.year <= max_year)
+def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, mood: list, album_uri_required: bool):
+    # Start with a subquery to get distinct album_keys that match filters
+    # This avoids JSON column comparison issues
+    subquery = db.query(models.FctAlbums.album_key).filter(
+        models.FctAlbums.year >= min_year, 
+        models.FctAlbums.year <= max_year
+    )
+    
+    # Join and filter on RelevantAlbums if needed
+    needs_music_lists_join = len(list[0]) > 0 or len(publication[0]) > 0 or album_uri_required
+    if needs_music_lists_join:
+        subquery = subquery.join(
+            models.RelevantAlbums, 
+            cast(models.FctAlbums.album_key, String) == models.RelevantAlbums.album_key
+        )
+        if len(list[0]) > 0:
+            subquery = subquery.filter(models.RelevantAlbums.list.in_(list))
+        if len(publication[0]) > 0:
+            subquery = subquery.filter(models.RelevantAlbums.publication.in_(publication))
+        if album_uri_required:
+            subquery = subquery.filter(models.RelevantAlbums.spotify_album_uri.isnot(None))
+    
+    # Filter on AlbumDescriptors - require ALL selected moods (AND logic, not OR)
+    # Note: We always load moods via joinedload below, so moods are always available
+    if len(mood[0]) > 0:
+        # Use a subquery to find albums that have ALL the requested moods
+        # This uses GROUP BY and HAVING to ensure the album has all moods
+        mood_subquery = db.query(models.AlbumDescriptors.album_key).filter(
+            models.AlbumDescriptors.mood.in_(mood)
+        ).group_by(models.AlbumDescriptors.album_key).having(
+            func.count(func.distinct(models.AlbumDescriptors.mood)) == len(mood)
+        ).subquery()
+        
+        # Join the subquery to filter albums that have all moods
+        subquery = subquery.join(
+            mood_subquery,
+            models.FctAlbums.album_key == mood_subquery.c.album_key
+        )
+    
+    # Filter on genre/subgenre
     if len(genre[0]) > 0:
-        base_query = base_query.filter(models.RelevantAlbums.genre.in_(genre))
+        subquery = subquery.filter(models.FctAlbums.genre.in_(genre))
     if len(subgenre[0]) > 0:
-        base_query = base_query.filter(models.RelevantAlbums.subgenre.in_(subgenre))
-    if len(list[0]) > 0:
-        base_query = base_query.filter(models.RelevantAlbums.list.in_(list))
-    if len(publication[0]) > 0:
-        base_query = base_query.filter(models.RelevantAlbums.publication.in_(publication))
-    if album_uri_required:
-        base_query = base_query.filter(models.RelevantAlbums.album_uri.isnot(None))
-    return base_query.group_by(models.RelevantAlbums.year, models.RelevantAlbums.album_key, models.RelevantAlbums.artist, models.RelevantAlbums.album, models.RelevantAlbums.genre, models.RelevantAlbums.subgenre, models.RelevantAlbums.apple_music_album_id, models.RelevantAlbums.apple_music_album_url, models.RelevantAlbums.spotify_album_uri, models.RelevantAlbums.image_url).all()
+        subquery = subquery.filter(models.FctAlbums.subgenre.in_(subgenre))
+    
+    # Get distinct album_keys from subquery (only selecting album_key avoids JSON column issues)
+    album_keys = [row[0] for row in subquery.distinct().all()]
+    
+    if not album_keys:
+        return []
+    
+    # Now query only the columns we need from FctAlbums with relationships
+    # Using load_only() to only load the columns we actually use, which speeds up the query
+    # joinedload ensures moods and music_lists are always loaded and available
+    base_query = db.query(models.FctAlbums).options(
+        load_only(
+            models.FctAlbums.album_key,
+            models.FctAlbums.year,
+            models.FctAlbums.artist,
+            models.FctAlbums.album,
+            models.FctAlbums.genre,
+            models.FctAlbums.subgenre,
+            models.FctAlbums.apple_music_album_id,
+            models.FctAlbums.apple_music_album_url,
+            models.FctAlbums.spotify_album_uri,
+            models.FctAlbums.image_url
+        ),
+        joinedload(models.FctAlbums.music_lists).load_only(
+            models.RelevantAlbums.points,
+            models.RelevantAlbums.total_points
+        ),
+        joinedload(models.FctAlbums.moods).load_only(
+            models.AlbumDescriptors.mood
+        )
+    ).filter(models.FctAlbums.album_key.in_(album_keys))
+    
+    return base_query.all()
 
 def get_relevant_lists(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list):
     base_query = db.query(models.RelevantAlbums.list).distinct().filter(models.RelevantAlbums.year >= min_year, models.RelevantAlbums.year <= max_year)
@@ -238,7 +295,7 @@ def get_album_info_new(db: Session, album_keys: list, apple_music_required: bool
     return base_query.group_by(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri).all()
 
 def get_album_info_new_albums_table(db: Session, album_key: str):
-    return db.query(models.FctAlbums.album_key, models.FctAlbums.artist, models.FctAlbums.album, models.FctAlbums.genre, models.FctAlbums.subgenre, models.FctAlbums.year, models.FctAlbums.image_url, models.FctAlbums.spotify_danceability_clean, models.FctAlbums.spotify_energy_clean, models.FctAlbums.spotify_instrumentalness_clean, models.FctAlbums.spotify_valence_clean, models.FctAlbums.spotify_tempo_clean, models.FctAlbums.apple_music_album_id, models.FctAlbums.apple_music_album_url, models.FctAlbums.spotify_album_uri, models.FctAlbums.apple_music_editorial_notes_short, models.FctAlbums.apple_music_editorial_notes_standard).filter(models.FctAlbums.album_key == album_key).all()
+    return db.query(models.FctAlbums).options(joinedload(models.FctAlbums.moods)).filter(models.FctAlbums.album_key == album_key).all()
 
 def get_mean_standard_deviation_of_audio_features(db: Session):
     return db.query(func.avg(models.FctAlbums.spotify_danceability_clean), func.stddev(models.FctAlbums.spotify_danceability_clean), func.avg(models.FctAlbums.spotify_energy_clean), func.stddev(models.FctAlbums.spotify_energy_clean), func.avg(models.FctAlbums.spotify_instrumentalness_clean), func.stddev(models.FctAlbums.spotify_instrumentalness_clean), func.avg(models.FctAlbums.spotify_valence_clean), func.stddev(models.FctAlbums.spotify_valence_clean), func.avg(models.FctAlbums.spotify_tempo_clean), func.stddev(models.FctAlbums.spotify_tempo_clean)).filter(models.FctAlbums.spotify_danceability_clean.isnot(None), models.FctAlbums.spotify_energy_clean.isnot(None), models.FctAlbums.spotify_instrumentalness_clean.isnot(None), models.FctAlbums.spotify_valence_clean.isnot(None), models.FctAlbums.spotify_tempo_clean.isnot(None)).all()

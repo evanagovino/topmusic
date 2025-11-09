@@ -1,6 +1,7 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
+from typing import List
 
 class FctAlbums(Base):
     __tablename__ = 'fct_albums'
@@ -27,6 +28,17 @@ class FctAlbums(Base):
     spotify_album_uri = Column(String)
     apple_music_editorial_notes_short = Column(String)
     apple_music_editorial_notes_standard = Column(String)
+    moods = relationship('AlbumDescriptors', back_populates='album')
+    music_lists = relationship('RelevantAlbums', back_populates='album')
+
+class AlbumDescriptors(Base):
+    __tablename__ = 'fct_album_descriptors'
+    __table_args__ = {"schema": "dbt"}
+
+    album_key = Column(Integer, ForeignKey('dbt.fct_albums.album_key'), primary_key=True)
+    mood = Column(String, primary_key=True)
+    explanation = Column(String)
+    album = relationship('FctAlbums', back_populates='moods')
 
 class FctTracks(Base):
     __tablename__ = 'fct_tracks'
@@ -124,54 +136,55 @@ class AlbumFeatures(Base):
     valence_clean = Column(Float)
     tempo_clean = Column(Float)
 
-class TrackFeatures(Base):
-    __tablename__ = "track_data"
-    __table_args__ = {"schema": "dbt"}
+# class TrackFeatures(Base):
+#     __tablename__ = "track_data"
+#     __table_args__ = {"schema": "dbt"}
 
-    track_id = Column(String, primary_key=True)
-    artist_id = Column(String)
-    track_name = Column(String)
-    track_popularity = Column(Integer)
-    genre = Column(String)
-    subgenre = Column(String)
-    year = Column(Integer)
-    artist = Column(String)
-    artist_id = Column(String)
-    album_id = Column(String)
-    album_url = Column(String)
-    album_name = Column(String)
-    image_url = Column(String)
-    duration = Column(Float)
-    danceability_raw = Column(Float)
-    energy_raw = Column(Float)
-    speechiness_raw = Column(Float)
-    acousticness_raw = Column(Float)
-    instrumentalness_raw = Column(Float)
-    liveness_raw = Column(Float)
-    valence_raw = Column(Float)
-    tempo_raw = Column(Float)
-    time_signature_raw = Column(Float)
-    danceability_clean = Column(Float)
-    energy_clean = Column(Float)
-    speechiness_clean = Column(Float)
-    acousticness_clean = Column(Float)
-    instrumentalness_clean = Column(Float)
-    liveness_clean = Column(Float)
-    valence_clean = Column(Float)
-    tempo_clean = Column(Float)
-    time_signature_raw = Column(Float)
-    tempo_mapped = Column(Float)
+#     track_id = Column(String, primary_key=True)
+#     artist_id = Column(String)
+#     track_name = Column(String)
+#     track_popularity = Column(Integer)
+#     genre = Column(String)
+#     subgenre = Column(String)
+#     year = Column(Integer)
+#     artist = Column(String)
+#     artist_id = Column(String)
+#     album_id = Column(String)
+#     album_url = Column(String)
+#     album_name = Column(String)
+#     image_url = Column(String)
+#     duration = Column(Float)
+#     danceability_raw = Column(Float)
+#     energy_raw = Column(Float)
+#     speechiness_raw = Column(Float)
+#     acousticness_raw = Column(Float)
+#     instrumentalness_raw = Column(Float)
+#     liveness_raw = Column(Float)
+#     valence_raw = Column(Float)
+#     tempo_raw = Column(Float)
+#     time_signature_raw = Column(Float)
+#     danceability_clean = Column(Float)
+#     energy_clean = Column(Float)
+#     speechiness_clean = Column(Float)
+#     acousticness_clean = Column(Float)
+#     instrumentalness_clean = Column(Float)
+#     liveness_clean = Column(Float)
+#     valence_clean = Column(Float)
+#     tempo_clean = Column(Float)
+#     time_signature_raw = Column(Float)
+#     tempo_mapped = Column(Float)
 
 class RelevantAlbums(Base):
     __tablename__ = "dim_music_lists"
     __table_args__ = {"schema": "dbt"}
 
+    # id = Column(Integer, primary_key=True, autoincrement=True)
     year = Column(Integer)
-    album_key = Column(String, primary_key=True)
+    album_key = Column(String, ForeignKey('dbt.fct_albums.album_key'), primary_key=True)
     artist = Column(String)
     album = Column(String)
-    publication = Column(String)
-    list = Column(String)
+    publication = Column(String, primary_key=True)
+    list = Column(String, primary_key=True)
     genre = Column(String)
     subgenre = Column(String)
     rank = Column(String)
@@ -181,6 +194,7 @@ class RelevantAlbums(Base):
     apple_music_album_id = Column(String)
     apple_music_album_url = Column(String)
     spotify_album_uri = Column(String)
+    album = relationship('FctAlbums', back_populates='music_lists')
 
 class ArtistPublications(Base):
     __tablename__ = "artist_publication_data"
