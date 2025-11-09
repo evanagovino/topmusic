@@ -289,10 +289,12 @@ def get_similar_tracks_from_similar_artists(db: Session, artist_id: str, genre_w
 
 
 def get_album_info_new(db: Session, album_keys: list, apple_music_required: bool):
-    base_query = db.query(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri, func.sum(models.FctTracks.album_points), func.avg(models.FctTracks.eligible_points)).filter(models.FctTracks.album_key.in_(album_keys))
+    #base_query = db.query(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri, func.sum(models.FctTracks.album_points), func.avg(models.FctTracks.eligible_points)).options(joinedload(models.FctAlbums.apple_music_artists)).filter(models.FctTracks.album_key.in_(album_keys))
+    base_query = db.query(models.FctAlbums).filter(models.FctAlbums.album_key.in_(album_keys))
     if apple_music_required:
-        base_query = base_query.filter(models.FctTracks.apple_music_track_id.isnot(None))
-    return base_query.group_by(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri).all()
+        base_query = base_query.filter(models.FctAlbums.apple_music_album_id.isnot(None))
+    # return base_query.group_by(models.FctTracks.album_key, models.FctTracks.artist, models.FctTracks.album, models.FctTracks.genre, models.FctTracks.subgenre, models.FctTracks.year, models.FctTracks.image_url, models.FctTracks.apple_music_album_id, models.FctTracks.apple_music_album_url, models.FctTracks.spotify_album_uri).all()
+    return base_query.all()
 
 def get_album_info_new_albums_table(db: Session, album_key: str):
     return db.query(models.FctAlbums).options(joinedload(models.FctAlbums.moods)).filter(models.FctAlbums.album_key == album_key).all()

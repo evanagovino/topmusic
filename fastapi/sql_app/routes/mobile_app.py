@@ -134,10 +134,12 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
     if len(db_albums) == 0:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     x = unpack_albums_new(db_albums, points_weight=0.5)
-    album_uris = [i for i in x['albums']]
-    print(album_uris)
+    # album_uris = [i for i in x['albums']]
+    # print(album_uris)
+    album_uris = [i.album_key for i in db_albums]
     if weighted_rank:
         weighted_ranks = [x['albums'][i]['weighted_rank'] for i in x['albums']]
+        # weighted_ranks = [1 for i in db_albums]
     else:
         weighted_ranks = [1 for i in x]
     tracks = return_tracks_new(db,

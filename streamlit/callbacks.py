@@ -34,10 +34,10 @@ def genre_callback():
 def artist_callback():
     if 'artist_selection' in st.session_state and st.session_state.artist_selection != 'All':
         st.session_state.artist_id = retrieve_artist_id(st.session_state.artist_selection)
-        st.session_state.albums_payload = retrieve_albums_payload(artist_id=st.session_state.artist_id)
-        st.session_state.available_albums = pull_unique_albums(st.session_state.albums_payload)
-        st.session_state.tracks_payload = retrieve_tracks_payload(artist_id=st.session_state.artist_id)
-        st.session_state.available_tracks = pull_unique_tracks(st.session_state.tracks_payload)
+        # st.session_state.albums_payload = retrieve_albums_payload(artist_id=st.session_state.artist_id)
+        # st.session_state.available_albums = pull_unique_albums(st.session_state.albums_payload)
+        # st.session_state.tracks_payload = retrieve_tracks_payload(artist_id=st.session_state.artist_id)
+        # st.session_state.available_tracks = pull_unique_tracks(st.session_state.tracks_payload)
 
 def album_callback():
     if 'album_selection' in st.session_state:
