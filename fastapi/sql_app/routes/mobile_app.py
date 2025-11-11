@@ -127,6 +127,8 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
                            db: Session = Depends(get_db)):
     """
     Return a list of tracks given a list of albums
+
+    NOTE: Need to add tags to this endpoint
     """
     db_albums = crud.get_album_info_new(db=db,
                                         album_keys=album_keys,
@@ -171,6 +173,8 @@ def get_recommended_tracks(artist_id: str = None,
     If Artist ID is provided, it will be used and all other inputs will be ignored.
 
     Used for Flutterflow endpoint.
+
+    NOTE: Need to add tags to this endpoint
     """
     if artist_id is None and genre is None:
         raise HTTPException(status_code=404, detail="Artist ID or Genre must be provided")
