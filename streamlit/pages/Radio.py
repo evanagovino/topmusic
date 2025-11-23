@@ -76,19 +76,19 @@ with st.sidebar:
         if st.session_state.custom_prompt == '':
             del st.session_state['custom_prompt']
 if 'song_selection' in st.session_state:
-    display = st.session_state.song_selection
+    st.session_state.display = st.session_state.song_selection
 elif 'album_selection' in st.session_state:
-    display = st.session_state.album_selection
+    st.session_state.display = st.session_state.album_selection
 elif 'artist_id' in st.session_state and 'artist_selection' in st.session_state:
-    display = st.session_state.artist_selection
+    st.session_state.display = st.session_state.artist_selection
 elif 'subgenre_selection' in st.session_state:
-    display = st.session_state.subgenre_selection
+    st.session_state.display = st.session_state.subgenre_selection
 elif 'genre_selection' in st.session_state:
-    display = st.session_state.genre_selection
+    st.session_state.display = st.session_state.genre_selection
 elif 'custom_prompt' in st.session_state:
-    display = st.session_state.custom_prompt
+    st.session_state.display = st.session_state.custom_prompt
 else:
-    display = None
+    st.session_state.display = None
 playback_settings = st.expander('Playback Settings', expanded=False)
 with playback_settings:
     model_features = st.multiselect(
@@ -101,10 +101,10 @@ with playback_settings:
     unskew_features = st.checkbox('Unskew Features', value=True, key='unskew_features')
     duration_min_minute = st.checkbox('Only return songs longer than 1 Minute', value=True, key='duration_min_minute')
 with st.sidebar:
-    if display:
+    if st.session_state.display:
         with st.expander('Playback Settings', expanded=False):
             album_limit = st.selectbox('Album Limit?', [50,100,250,500], index=1, help='Number of albums to include in pool for potential playlist')
-        generate = st.button(f'Generate {display} Radio', 
+        generate = st.button(f'Generate {st.session_state.display} Radio', 
                              help="Generate a radio based on above parameters"
                              )
         if generate:
@@ -118,7 +118,7 @@ with st.sidebar:
                 create_playlist = st.button('Export playlist to Apple Music', help="Export current playlist to Apple Music")
                 if create_playlist:
                     apple_music_create_playlist(tracks=st.session_state.track_uris,
-                                                playlist_name=display
+                                                playlist_name=st.session_state.display
                                                 )
 
 apple_music_player()
@@ -130,8 +130,8 @@ with display_songs:
     else:
         st.write('No songs to display! Perhaps you need to start a radio?')
 
-if display == None:
-    st.subheader('Pick a Genre, Artist or Mood to Start Your Radio')
+if st.session_state.display == None:
+    st.subheader('Pick a Genre, Artist or Custom Prompt to Start Your Radio')
 
 if 'track_info' in st.session_state:
     st.subheader('Recommended Albums')

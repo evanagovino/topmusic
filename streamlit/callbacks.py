@@ -79,6 +79,6 @@ def radio_callback(album_limit=100):
             if len(relevant_albums) > 0:
                 st.session_state.track_info = return_tracks(relevant_albums, album_limit=album_limit)
     elif st.session_state.radio_type == 'Custom Prompt':
-        st.session_state.track_info = get_recommended_tracks_from_custom_prompt(custom_prompt=st.session_state.custom_prompt)
+        st.session_state.track_info, st.session_state.display = get_recommended_tracks_from_custom_prompt(custom_prompt=st.session_state.custom_prompt)
         
         

@@ -471,7 +471,6 @@ def get_recommended_tracks(artist_id: str):
     base_url = f'{fastapi_url}/app/get_recommended_tracks/?artist_id={artist_id}'
     tracks = requests.get(base_url)
     if tracks.status_code == 200:
-        # st.write(pd.DataFrame(tracks.json()['tracks']).head())
         return pd.DataFrame(tracks.json()['tracks'])
     else:
         st.write('Error getting recommended tracks')
@@ -480,7 +479,7 @@ def get_recommended_tracks_from_custom_prompt(custom_prompt: str):
     base_url = f'{fastapi_url}/app/create_playlist_from_user_prompt/?user_request={custom_prompt}'
     tracks = requests.get(base_url)
     if tracks.status_code == 200:
-        return pd.DataFrame(tracks.json()['tracks'])
+        return pd.DataFrame(tracks.json()['tracks']), tracks.json()['playlist_name']
     else:
         st.write('Error getting recommended tracks from custom prompt')
 
