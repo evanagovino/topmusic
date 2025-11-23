@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums, unpack_albums_new, return_tracks_new, normalize_weights
-from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features
+from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features, generate_audio_descriptors_using_features
 import numpy as np
 import pandas as pd
 import json
@@ -56,6 +56,7 @@ def get_relevant_albums(min_year: int,
                         subgenre: List[str] = Query([None]), 
                         publication: List[str] =Query([None]), 
                         list: List[str] = Query([None]), 
+                        mood: List[str] = Query([None]),
                         points_weight: float = 0.5,
                         randomize: bool = False,
                         order_by_recency: bool = False,
@@ -74,6 +75,7 @@ def get_relevant_albums(min_year: int,
                              subgenre=subgenre, 
                              publication=publication, 
                              list=list,
+                             mood=mood,
                              points_weight=points_weight,
                              album_uri_required=False
                              )
@@ -125,6 +127,8 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
                            db: Session = Depends(get_db)):
     """
     Return a list of tracks given a list of albums
+
+    NOTE: Need to add tags to this endpoint
     """
     db_albums = crud.get_album_info_new(db=db,
                                         album_keys=album_keys,
@@ -132,8 +136,7 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
     if len(db_albums) == 0:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
     x = unpack_albums_new(db_albums, points_weight=0.5)
-    album_uris = [i for i in x['albums']]
-    print(album_uris)
+    album_uris = [i.album_key for i in db_albums]
     if weighted_rank:
         weighted_ranks = [x['albums'][i]['weighted_rank'] for i in x['albums']]
     else:
@@ -167,6 +170,8 @@ def get_recommended_tracks(artist_id: str = None,
     If Artist ID is provided, it will be used and all other inputs will be ignored.
 
     Used for Flutterflow endpoint.
+
+    NOTE: Need to add tags to this endpoint
     """
     if artist_id is None and genre is None:
         raise HTTPException(status_code=404, detail="Artist ID or Genre must be provided")
@@ -339,6 +344,7 @@ def get_recommended_tracks(artist_id: str = None,
                                  subgenre=[''], 
                                  publication=[''], 
                                  list=[''],
+                                 mood=[''],
                                  points_weight=0.5,
                                  album_uri_required=False
                                  )
@@ -452,8 +458,44 @@ def get_album_info(album_id: str, db: Session = Depends(get_db)):
                             'image_url': i.image_url,
                             'apple_music_album_id': i.apple_music_album_id,
                             'apple_music_album_url': i.apple_music_album_url,
-                            'spotify_album_uri': i.spotify_album_uri})
+                            'spotify_album_uri': i.spotify_album_uri,
+                            'moods': [mood.mood for mood in i.moods]})
     return x
+
+@router.get("/get_descriptor_buckets_for_album/{album_id}", response_model=schemas.AudioDescription)
+def get_descriptor_buckets_for_album(album_id: str, db: Session = Depends(get_db)):
+    #Get Mean and Standard Deviation of Audio Features
+    db_audio_features = crud.get_mean_standard_deviation_of_audio_features(db)
+    if db_audio_features is None:
+        raise HTTPException(status_code=404, detail="No audio features found")
+    audio_features = {}
+    audio_features['danceability'] = db_audio_features[0][0]
+    audio_features['danceability_std'] = db_audio_features[0][1]
+    audio_features['energy'] = db_audio_features[0][2]
+    audio_features['energy_std'] = db_audio_features[0][3]
+    audio_features['instrumentalness'] = db_audio_features[0][4]
+    audio_features['instrumentalness_std'] = db_audio_features[0][5]
+    audio_features['valence'] = db_audio_features[0][6]
+    audio_features['valence_std'] = db_audio_features[0][7]
+    audio_features['tempo'] = db_audio_features[0][8]
+    audio_features['tempo_std'] = db_audio_features[0][9]
+    #Get Descriptor Buckets for Album
+    db_album = crud.get_album_info_new_albums_table(db=db, album_key=album_id)
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="Album not found")
+    album_features = {}
+    album_features['danceability'] = db_album[0].spotify_danceability_clean
+    album_features['energy'] = db_album[0].spotify_energy_clean
+    album_features['instrumentalness'] = db_album[0].spotify_instrumentalness_clean
+    album_features['valence'] = db_album[0].spotify_valence_clean
+    album_features['tempo'] = db_album[0].spotify_tempo_clean
+    album_features['genre'] = db_album[0].genre
+    album_features['subgenre'] = db_album[0].subgenre
+    album_features['apple_music_editorial_notes_short'] = db_album[0].apple_music_editorial_notes_short
+    album_features['apple_music_editorial_notes_standard'] = db_album[0].apple_music_editorial_notes_standard
+    audio_descriptors, explanation = generate_audio_descriptors_using_features(album_features, audio_features)
+    print('RESPONSE FROM LLM', audio_descriptors, explanation)
+    return {'album_id': album_id, 'audio_descriptors': audio_descriptors, 'explanation': explanation}
 
 @router.get("/create_playlist_from_user_prompt/", response_model=schemas.TracksLLMResponse)
 def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Query(['']), weigh_by_popularity: bool = True, song_limit: int = 50, debug: bool = False, db: Session = Depends(get_db)):

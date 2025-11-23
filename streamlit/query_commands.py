@@ -3,10 +3,27 @@ import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
+import json
 from _utils import *
 from _mood_settings import *
 
 fastapi_url = 'http://fastapi:8000'
+
+mood_color_mappings = {
+    'Frenetic': 'red',
+    'Weird': 'red',
+    'Gritty': 'gray',
+    'Cathartic': 'blue',
+    'Wistful': 'blue',
+    'Sultry': 'violet',
+    'Intimate': 'violet',
+    'Groovy': 'green',
+    'Upbeat': 'green',
+    'Visceral': 'yellow',
+    'Lush': 'orange',
+    'Sprawling': 'orange',
+    'Ethereal': 'orange',
+}
 
 # Genre Functions
 
@@ -95,6 +112,23 @@ def initiate_publications():
     if 'all_publications' not in st.session_state:
         st.session_state.publications_payload = pull_publication_payload()
         st.session_state.all_publications = pull_unique_publications(st.session_state.publications_payload)
+
+# Mood Functions
+
+@st.cache_data(ttl=600)
+def pull_mood_payload() -> dict:
+    """
+    Returns dictionary of moods
+    """
+    moods_raw = requests.get(f'{fastapi_url}/web/moods/')
+    return sorted(moods_raw.json()['moods'])
+
+def initiate_moods():
+    """
+    Function to add mood payload and list of moods to Streamlit session
+    """
+    if 'all_moods' not in st.session_state:
+        st.session_state.all_moods = pull_mood_payload()
 
 def retrieve_artist_id(artist: str) -> str:
     """
@@ -224,7 +258,8 @@ def get_relevant_albums(min_year: int,
                         genre: str = None, 
                         subgenre: str = None, 
                         publication: str= None, 
-                        list: str= None
+                        list: str= None,
+                        mood: str = None,
                         ) -> pd.DataFrame:
     """
     Returns dataframe of relevant albums given year, genre, subgenre, publication, and list inputs
@@ -253,6 +288,12 @@ def get_relevant_albums(min_year: int,
             base_api += f'&list={item}'
     else:
         base_api += '&list='
+    if mood:
+        for item in mood:
+            item = item.replace('&', '%26')
+            base_api += f'&mood={item}'
+    else:
+        base_api += '&mood='
     relevant_albums = requests.get(base_api)
     result_df = pd.DataFrame.from_dict(relevant_albums.json()['albums'], orient='index')
     return result_df
@@ -311,10 +352,11 @@ def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
             subgenre = df['subgenre'][position]
             year = df['year'][position]
             image = df['image_url'][position]
+            moods = df['moods'][position]
             apple_music_album_url = df['apple_music_album_url'][position]
-            col1, col2 = st.columns([1,1.4], gap='large')
+            col1, col2, col3 = st.columns([0.4,0.4,0.2], gap='large')
             with col1:
-                st.image(image, use_column_width=True)
+                st.image(image, use_container_width=True)
             with col2:
                 st.subheader(f'#{position + 1}')
                 st.subheader(artist)
@@ -324,6 +366,16 @@ def show_albums(df, list_start=0, list_end=100, show_subgenres=None):
                 else:
                     st.subheader(f'Genre: {subgenre}')
                 st.subheader(year)
+                if moods:
+                    audio_descriptors = sorted(moods)
+                    mood_markdown = ''
+                    for descriptor in audio_descriptors:
+                        if descriptor in mood_color_mappings:
+                            color = mood_color_mappings[descriptor]
+                        else:
+                            color = 'gray'
+                        mood_markdown += f":{color}-badge[{descriptor}] "
+                    st.markdown(mood_markdown)
                 container = st.expander('Accolades', expanded=False)
                 with container:
                     get_album_accolades(album_key)
@@ -361,7 +413,7 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
                     album_url = df['album_url'][position]
                     col1, col2 = st.columns([1,1.4], gap='large')
                     with col1:
-                        st.image(image, use_column_width=True)
+                        st.image(image, use_container_width=True)
                     with col2:
                         st.subheader(artist)
                         st.subheader(album)
@@ -391,7 +443,7 @@ def show_albums_two(df, list_start=0, list_end=50, show_subgenres=None):
                     album_url = df['album_url'][position + 1]
                     col1, col2 = st.columns([1,1.4], gap='large')
                     with col1:
-                        st.image(image, use_column_width=True)
+                        st.image(image, use_container_width=True)
                     with col2:
                         st.subheader(artist)
                         st.subheader(album)
@@ -419,7 +471,6 @@ def get_recommended_tracks(artist_id: str):
     base_url = f'{fastapi_url}/app/get_recommended_tracks/?artist_id={artist_id}'
     tracks = requests.get(base_url)
     if tracks.status_code == 200:
-        # st.write(pd.DataFrame(tracks.json()['tracks']).head())
         return pd.DataFrame(tracks.json()['tracks'])
     else:
         st.write('Error getting recommended tracks')
@@ -428,7 +479,7 @@ def get_recommended_tracks_from_custom_prompt(custom_prompt: str):
     base_url = f'{fastapi_url}/app/create_playlist_from_user_prompt/?user_request={custom_prompt}'
     tracks = requests.get(base_url)
     if tracks.status_code == 200:
-        return pd.DataFrame(tracks.json()['tracks'])
+        return pd.DataFrame(tracks.json()['tracks']), tracks.json()['playlist_name']
     else:
         st.write('Error getting recommended tracks from custom prompt')
 

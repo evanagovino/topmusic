@@ -34,10 +34,10 @@ def genre_callback():
 def artist_callback():
     if 'artist_selection' in st.session_state and st.session_state.artist_selection != 'All':
         st.session_state.artist_id = retrieve_artist_id(st.session_state.artist_selection)
-        st.session_state.albums_payload = retrieve_albums_payload(artist_id=st.session_state.artist_id)
-        st.session_state.available_albums = pull_unique_albums(st.session_state.albums_payload)
-        st.session_state.tracks_payload = retrieve_tracks_payload(artist_id=st.session_state.artist_id)
-        st.session_state.available_tracks = pull_unique_tracks(st.session_state.tracks_payload)
+        # st.session_state.albums_payload = retrieve_albums_payload(artist_id=st.session_state.artist_id)
+        # st.session_state.available_albums = pull_unique_albums(st.session_state.albums_payload)
+        # st.session_state.tracks_payload = retrieve_tracks_payload(artist_id=st.session_state.artist_id)
+        # st.session_state.available_tracks = pull_unique_tracks(st.session_state.tracks_payload)
 
 def album_callback():
     if 'album_selection' in st.session_state:
@@ -79,6 +79,6 @@ def radio_callback(album_limit=100):
             if len(relevant_albums) > 0:
                 st.session_state.track_info = return_tracks(relevant_albums, album_limit=album_limit)
     elif st.session_state.radio_type == 'Custom Prompt':
-        st.session_state.track_info = get_recommended_tracks_from_custom_prompt(custom_prompt=st.session_state.custom_prompt)
+        st.session_state.track_info, st.session_state.display = get_recommended_tracks_from_custom_prompt(custom_prompt=st.session_state.custom_prompt)
         
         

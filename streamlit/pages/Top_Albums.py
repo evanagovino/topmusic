@@ -13,6 +13,7 @@ init_time = datetime.datetime.now()
 initiate_genres()
 initiate_artists()
 initiate_publications()
+initiate_moods()
 
 st.session_state.current_session_status = get_session_status()
 
@@ -49,7 +50,8 @@ with st.sidebar:
     show_publications = st.multiselect('Publications', st.session_state.all_publications, default=None)
     st.session_state.all_lists = get_relevant_lists(min_year, max_year, show_genres, show_subgenres, show_publications)
     show_lists = st.multiselect('Lists', st.session_state.all_lists, default=None)
-relevant_albums = get_relevant_albums(min_year, max_year, show_genres, show_subgenres, show_publications, show_lists)
+    show_moods = st.multiselect('Moods', st.session_state.all_moods, default=None)
+relevant_albums = get_relevant_albums(min_year, max_year, show_genres, show_subgenres, show_publications, show_lists, show_moods)
 with st.sidebar:
     if st.session_state.current_session_status:
         with st.expander('Playback Settings', expanded=False):

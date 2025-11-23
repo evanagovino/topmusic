@@ -97,8 +97,9 @@ def unpack_albums(db_albums, points_weight):
                                         }
     total_points = np.sum(x['albums'][i]['points'] for i in x['albums'])
     total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
+    points_weight_float = float(points_weight)
     for value in x['albums']:
-        x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
+        x['albums'][value]['weighted_rank'] = (points_weight_float * (x['albums'][value]['points'] / total_points)) + ((1 - points_weight_float) * (x['albums'][value]['points_pct'] / total_points_pct))
     new_dict = {}
     for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
         new_dict[value[0]] = value[1]
@@ -111,6 +112,18 @@ def unpack_albums_new(db_albums, points_weight):
     """    
     x = {'albums': {}}
     for position, value in enumerate(db_albums):
+        # Parse JSON string back to dict if it's a string
+        # audio_descriptors = value.album_descriptors_audio_descriptors
+        # if isinstance(audio_descriptors, str):
+        #     try:
+        #         audio_descriptors = json.loads(audio_descriptors)
+        #     except (json.JSONDecodeError, TypeError):
+        #         audio_descriptors = None
+        
+        # Aggregate points and total_points from music_lists collection
+        points_sum = sum(ml.points for ml in value.music_lists) if value.music_lists else 0
+        total_points_avg = sum(ml.total_points for ml in value.music_lists) / len(value.music_lists) if value.music_lists and len(value.music_lists) > 0 else 0
+        
         x['albums'][value.album_key] = {'year': value.year,
                                         'album_key': value.album_key,
                                         'artist': value.artist,
@@ -121,14 +134,16 @@ def unpack_albums_new(db_albums, points_weight):
                                         'apple_music_album_url': value.apple_music_album_url,
                                         'spotify_album_uri': value.spotify_album_uri,
                                         'image_url': value.image_url,
-                                        'points': value[10],
-                                        'total_points': value[11],
-                                        'points_pct': value[10] / value[11]
+                                        'moods': [m.mood for m in value.moods] if value.moods else [],
+                                        'points': points_sum,
+                                        'total_points': total_points_avg,
+                                        'points_pct': points_sum / total_points_avg if total_points_avg > 0 else 0
                                         }
     total_points = np.sum(x['albums'][i]['points'] for i in x['albums'])
     total_points_pct = np.sum(x['albums'][i]['points_pct'] for i in x['albums'])
+    points_weight_float = float(points_weight)
     for value in x['albums']:
-        x['albums'][value]['weighted_rank'] = float((Decimal(points_weight) * (x['albums'][value]['points'] / total_points)) + ((1 - Decimal(points_weight)) * (x['albums'][value]['points_pct']) / total_points_pct))
+        x['albums'][value]['weighted_rank'] = (points_weight_float * (x['albums'][value]['points'] / total_points)) + ((1 - points_weight_float) * (x['albums'][value]['points_pct'] / total_points_pct))
     new_dict = {}
     for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
         new_dict[value[0]] = value[1]
@@ -259,6 +274,7 @@ def pull_relevant_albums(db,
                              subgenre, 
                              publication, 
                              list,
+                             mood,
                              points_weight,
                              album_uri_required):
     db_albums = crud.get_relevant_albums(db, 
@@ -268,6 +284,7 @@ def pull_relevant_albums(db,
                                          subgenre=subgenre, 
                                          publication=publication, 
                                          list=list,
+                                         mood=mood,
                                          album_uri_required=album_uri_required
                                          )
     if db_albums is None:

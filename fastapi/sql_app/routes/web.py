@@ -53,6 +53,14 @@ def get_distinct_artists(db: Session = Depends(get_db)):
         x['artists'][i.artist_name] = i.artist_id
     return x
 
+@router.get("/moods/", response_model=schemas.Moods)
+def get_distinct_moods(db: Session = Depends(get_db)):
+    db_mood = crud.get_unique_moods(db)
+    x = {'moods': []}
+    for i in db_mood:
+        x['moods'].append(i.mood)
+    return x
+
 @router.get("/artists_albums/", response_model=schemas.AlbumsList)
 def get_distinct_artists_albums(db: Session = Depends(get_db)):
     db_artist_albums = crud.get_unique_artists_albums(db)
@@ -186,6 +194,7 @@ def get_relevant_albums(min_year: int,
                         subgenre: List[str] = Query([None]), 
                         publication: List[str] =Query([None]), 
                         list: List[str] = Query([None]), 
+                        mood: List[str] = Query([None]),
                         points_weight: float = 0.5,
                         album_limit: int = 50,
                         db: Session = Depends(get_db)
@@ -203,6 +212,7 @@ def get_relevant_albums(min_year: int,
                              subgenre=subgenre, 
                              publication=publication, 
                              list=list,
+                             mood=mood,
                              points_weight=points_weight,
                              album_uri_required=False
                             )

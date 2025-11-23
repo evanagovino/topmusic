@@ -328,6 +328,71 @@ def query_songs_with_features(df, where_conditions=None, weigh_by_popularity=Tru
     print(f"✅ Final result: {len(result)} songs")
     return result
 
+def generate_audio_descriptors_using_features(album_features, audio_features):
+    prompt = f'''
+    You are a music curator assigned to generate audio descriptors for an album using a combination of the album's listed genre and subgenre, its audio features and its metadata.
+
+    There are fourteen possible descriptors: ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird', 'Chill']
+
+    These are brief descriptions of the descriptors:
+    Visceral - raw, physical impact (seen in descriptions like "visceral power," punk, metal albums)
+    Lush - rich, layered, full production (appears in descriptions of pop, orchestral, and dream-pop albums)
+    Sprawling - expansive, ambitious in scope (used for lengthy projects, concept albums)
+    Intimate - personal, close, confessional (frequently used for singer-songwriter and bedroom pop)
+    Frenetic - chaotic, high-energy, restless (describes experimental, punk, and certain electronic albums)
+    Ethereal - otherworldly, floating, dreamlike (common in ambient, shoegaze descriptions)
+    Gritty - rough-edged, street-level, unpolished (used for hip-hop, punk, garage rock)
+    Sultry - sensual, smooth, seductive (appears in R&B and soul album descriptions)
+    Cathartic - emotionally releasing, purging (used for intense personal albums)
+    Groovy - smooth, soulful, danceable (used for R&B, soul, and funk albums)
+    Wistful - longing, bittersweet nostalgia (common in folk, indie, and retrospective works)
+    Upbeat - positive, uplifting, cheerful (used for pop, indie, and upbeat albums)
+    Weird - strange, unusual, unexpected (used for experimental, avant-garde, and avant-pop albums)
+    Chill - calm, relaxing, serene (common in ambient, chillwave, and chillout albums)
+
+    Danceability: Between 0 and 1, with a mean of {audio_features['danceability']} and a standard deviation of {audio_features['danceability_std']}
+    Energy: Between 0 and 1, with a mean of {audio_features['energy']} and a standard deviation of {audio_features['energy_std']}
+    Valence: Between 0 and 1, with a mean of {audio_features['valence']} and a standard deviation of {audio_features['valence_std']}
+    Instrumentalness: Between 0 and 1, with a mean of {audio_features['instrumentalness']} and a standard deviation of {audio_features['instrumentalness_std']}
+    Tempo: Between 0 and 1, with a mean of {audio_features['tempo']} and a standard deviation of {audio_features['tempo_std']}
+
+    All available genres: ['African', 'Alternative', 'Classical', 'Contemporary', 'Country', 'Electronic', 'Experimental', 'Indie Rock', 'Jazz', 'Latin', 'Metal', 'Pop', 'R&B', 'Rap', 'Reggae', 'Rock']
+
+    All available subgenres: ['African', 'Afrobeat', 'Afrobeats', 'Alternative', 'Amapiano', 'Ambient', 'Ambient Folk', 'Americana', 'Bachata', 'Balearic', 'Baroque', 'Bass', 'Bluegrass', 'Blues', 'Brazilian', 'Brazilian Funk', 'British Rap', 'Choral', 'Classical', 'Classical Folk', 'Contemporary', 'Country', 'Cumbia', 'Dancehall', 'Dembow', 'Desert Blues', 'Doom', 'Downtempo', 'Dream Pop', 'Drone', 'Drum & Bass', 'Dubstep', 'Egyptian', 'Electronic', 'Electropop', 'Emo', 'Ethiopian', 'Experimental', 'Experimental Rap', 'Experimental Rock', 'Field Recording', 'Flamenco', 'Folk', 'Footwork', 'Funk', 'Gospel', 'Gqom', 'Grime', 'Hardcore', 'House', 'IDM', 'Indie Dance', 'Indie Pop', 'Indie Rock', 'Industrial', 'Instrumental Hip-Hop', 'Internet', 'J-Pop', 'Jazz', 'Jersey Club', 'Jungle', 'K-Pop', 'Latin', 'Mambo', 'Mariachi', 'Metal', 'Miami Bass', 'New Age', 'New Wave', 'Noise', 'Nu Metal', 'Opera', 'Pop', 'Post-Punk', 'Power Pop', 'Psychadelic Rock', 'Punk', 'R&B', 'Ranchera', 'Rap', 'Reggae', 'Reggaeton', 'Regional Mexican', 'Rock', 'Salsa', 'Screamo', 'Shoegaze', 'Singer/Songwriter', 'Ska', 'Soul', 'Spiritual Jazz', 'Spoken Word', 'Techno', 'UK Rap', 'Vaporwave', 'Vocal Jazz', 'Yacht Rock']
+
+    This album has a genre of: {album_features['genre']}
+    It has a subgenre of: {album_features['subgenre']}
+
+    Its danceability value is: {album_features['danceability']}
+    Its energy value is: {album_features['energy']}
+    Its valence is: {album_features['valence']}
+    Its instrumentalness is: {album_features['instrumentalness']}
+    Its tempo is: {album_features['tempo']}
+
+    The editorial description of the album is: {album_features['apple_music_editorial_notes_standard']}
+
+    Using this metadata, please bucket this album into at least one, and no more than three, of the fourteen listed descriptors.
+
+    Return ONLY valid JSON:
+    {{
+    "audio_descriptors": ["descriptor1", "descriptor2", "descriptor3"],
+    "explanation": "reasoning about audio descriptors",
+    }}
+    '''
+    response = test_llm_claude(prompt)
+    json_match = re.search(r'\{.*\}', response, re.DOTALL)
+    if json_match:
+        query_spec = json.loads(json_match.group(), strict=False)
+        
+        print("🤖 LLM Generated:")
+        print(json.dumps(query_spec, indent=2))
+        
+        audio_descriptors = query_spec.get('audio_descriptors', [])
+        explanation = query_spec.get('explanation', '')
+        return audio_descriptors, explanation
+    else:
+        return None, None
+
 def generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=True, song_limit=50):
     """Generate playlist using your actual audio features"""
     
