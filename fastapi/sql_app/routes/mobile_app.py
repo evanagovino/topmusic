@@ -74,7 +74,7 @@ def get_relevant_albums(min_year: int,
                              subgenre=subgenre, 
                              publication=publication, 
                              list=list,
-                             mood=mood,
+                             mood=[''],
                              points_weight=points_weight,
                              album_uri_required=False
                              )
