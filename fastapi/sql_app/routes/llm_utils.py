@@ -332,7 +332,7 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
     prompt = f'''
     You are a music curator assigned to generate audio descriptors for an album using a combination of the album's listed genre and subgenre, its audio features and its metadata.
 
-    There are thirteen possible descriptors: ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird']
+    There are fourteen possible descriptors: ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird', 'Chill']
 
     These are brief descriptions of the descriptors:
     Visceral - raw, physical impact (seen in descriptions like "visceral power," punk, metal albums)
@@ -348,6 +348,7 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
     Wistful - longing, bittersweet nostalgia (common in folk, indie, and retrospective works)
     Upbeat - positive, uplifting, cheerful (used for pop, indie, and upbeat albums)
     Weird - strange, unusual, unexpected (used for experimental, avant-garde, and avant-pop albums)
+    Chill - calm, relaxing, serene (common in ambient, chillwave, and chillout albums)
 
     Danceability: Between 0 and 1, with a mean of {audio_features['danceability']} and a standard deviation of {audio_features['danceability_std']}
     Energy: Between 0 and 1, with a mean of {audio_features['energy']} and a standard deviation of {audio_features['energy_std']}
@@ -370,7 +371,7 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
 
     The editorial description of the album is: {album_features['apple_music_editorial_notes_standard']}
 
-    Using this metadata, please bucket this album into at least one, and no more than three, of the twelve listed descriptors.
+    Using this metadata, please bucket this album into at least one, and no more than three, of the fourteen listed descriptors.
 
     Return ONLY valid JSON:
     {{
