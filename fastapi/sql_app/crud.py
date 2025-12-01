@@ -69,29 +69,25 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
     if len(subgenre[0]) > 0:
         base_query = base_query.filter(models.FctAlbums.subgenre.in_(subgenre))
     
-    # Use EXISTS subqueries for filtering on RelatedAlbums - more efficient than joins
-    # This avoids cartesian products and allows better query optimization
+    # Filter on RelevantAlbums using a join with distinct to avoid cartesian products
+    # This is more reliable than EXISTS subqueries for this use case
     needs_music_lists_filter = len(list[0]) > 0 or len(publication[0]) > 0 or album_uri_required
     if needs_music_lists_filter:
-        # Build EXISTS condition for RelevantAlbums
-        relevant_albums_exists = db.query(models.RelevantAlbums).filter(
+        # Join with RelevantAlbums and apply filters
+        base_query = base_query.join(
+            models.RelevantAlbums,
             cast(models.FctAlbums.album_key, String) == models.RelevantAlbums.album_key
         )
         
         if len(list[0]) > 0:
-            relevant_albums_exists = relevant_albums_exists.filter(
-                models.RelevantAlbums.list.in_(list)
-            )
+            base_query = base_query.filter(models.RelevantAlbums.list.in_(list))
         if len(publication[0]) > 0:
-            relevant_albums_exists = relevant_albums_exists.filter(
-                models.RelevantAlbums.publication.in_(publication)
-            )
+            base_query = base_query.filter(models.RelevantAlbums.publication.in_(publication))
         if album_uri_required:
-            relevant_albums_exists = relevant_albums_exists.filter(
-                models.RelevantAlbums.spotify_album_uri.isnot(None)
-            )
+            base_query = base_query.filter(models.RelevantAlbums.spotify_album_uri.isnot(None))
         
-        base_query = base_query.filter(exists(relevant_albums_exists))
+        # Use distinct() to avoid duplicate albums when an album has multiple RelevantAlbums entries
+        base_query = base_query.distinct()
     
     # Filter on AlbumDescriptors - require ALL selected moods (AND logic, not OR)
     # Use a single EXISTS subquery with GROUP BY/HAVING for better performance
