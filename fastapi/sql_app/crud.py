@@ -56,60 +56,58 @@ def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenre
     return base_query.all()
 
 def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, mood: list, album_uri_required: bool):
-    # Build the main query with all filters applied directly
-    # This avoids the two-step approach and allows the database to optimize better
-    base_query = db.query(models.FctAlbums).filter(
+    # Step 1: Get album_keys that match all filters (no relationships loaded)
+    # This is fast because we're only selecting album_key, avoiding JSON column issues
+    subquery = db.query(models.FctAlbums.album_key).filter(
         models.FctAlbums.year >= min_year, 
         models.FctAlbums.year <= max_year
     )
     
     # Filter on genre/subgenre first (most selective filters)
     if len(genre[0]) > 0:
-        base_query = base_query.filter(models.FctAlbums.genre.in_(genre))
+        subquery = subquery.filter(models.FctAlbums.genre.in_(genre))
     if len(subgenre[0]) > 0:
-        base_query = base_query.filter(models.FctAlbums.subgenre.in_(subgenre))
+        subquery = subquery.filter(models.FctAlbums.subgenre.in_(subgenre))
     
-    # Filter on RelevantAlbums using a join with distinct to avoid cartesian products
-    # This is more reliable than EXISTS subqueries for this use case
-    needs_music_lists_filter = len(list[0]) > 0 or len(publication[0]) > 0 or album_uri_required
-    if needs_music_lists_filter:
-        # Join with RelevantAlbums and apply filters
-        base_query = base_query.join(
-            models.RelevantAlbums,
+    # Filter on RelevantAlbums if needed
+    needs_music_lists_join = len(list[0]) > 0 or len(publication[0]) > 0 or album_uri_required
+    if needs_music_lists_join:
+        subquery = subquery.join(
+            models.RelevantAlbums, 
             cast(models.FctAlbums.album_key, String) == models.RelevantAlbums.album_key
         )
-        
         if len(list[0]) > 0:
-            base_query = base_query.filter(models.RelevantAlbums.list.in_(list))
+            subquery = subquery.filter(models.RelevantAlbums.list.in_(list))
         if len(publication[0]) > 0:
-            base_query = base_query.filter(models.RelevantAlbums.publication.in_(publication))
+            subquery = subquery.filter(models.RelevantAlbums.publication.in_(publication))
         if album_uri_required:
-            base_query = base_query.filter(models.RelevantAlbums.spotify_album_uri.isnot(None))
-        
-        # Use distinct() to avoid duplicate albums when an album has multiple RelevantAlbums entries
-        base_query = base_query.distinct()
+            subquery = subquery.filter(models.RelevantAlbums.spotify_album_uri.isnot(None))
     
     # Filter on AlbumDescriptors - require ALL selected moods (AND logic, not OR)
-    # Use a subquery to find albums that have ALL the requested moods
     if len(mood[0]) > 0:
-        # Create a subquery that finds album_keys with ALL requested moods
-        # This uses GROUP BY and HAVING to ensure the album has all moods
+        # Use a subquery to find albums that have ALL the requested moods
         mood_subquery = db.query(models.AlbumDescriptors.album_key).filter(
             models.AlbumDescriptors.mood.in_(mood)
         ).group_by(models.AlbumDescriptors.album_key).having(
             func.count(func.distinct(models.AlbumDescriptors.mood)) == len(mood)
         ).subquery()
         
-        # Join with the subquery to filter albums that have all moods
-        base_query = base_query.join(
+        # Join the subquery to filter albums that have all moods
+        subquery = subquery.join(
             mood_subquery,
             models.FctAlbums.album_key == mood_subquery.c.album_key
-        ).distinct()
+        )
     
-    # Use selectinload instead of joinedload to avoid cartesian products
-    # selectinload uses separate queries but is much faster when albums have many
-    # related records in music_lists and moods
-    base_query = base_query.options(
+    # Get distinct album_keys from subquery
+    album_keys = [row[0] for row in subquery.distinct().all()]
+    
+    if not album_keys:
+        return []
+    
+    # Step 2: Query only the filtered albums with relationships
+    # Using joinedload is fine here because we've already filtered to a small set
+    # and joinedload is faster than selectinload for smaller result sets
+    base_query = db.query(models.FctAlbums).options(
         load_only(
             models.FctAlbums.album_key,
             models.FctAlbums.year,
@@ -122,14 +120,14 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
             models.FctAlbums.spotify_album_uri,
             models.FctAlbums.image_url
         ),
-        selectinload(models.FctAlbums.music_lists).load_only(
+        joinedload(models.FctAlbums.music_lists).load_only(
             models.RelevantAlbums.points,
             models.RelevantAlbums.total_points
         ),
-        selectinload(models.FctAlbums.moods).load_only(
+        joinedload(models.FctAlbums.moods).load_only(
             models.AlbumDescriptors.mood
         )
-    )
+    ).filter(models.FctAlbums.album_key.in_(album_keys))
     
     return base_query.all()
 
