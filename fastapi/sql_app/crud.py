@@ -105,29 +105,58 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
         return []
     
     # Step 2: Query only the filtered albums with relationships
-    # Using joinedload is fine here because we've already filtered to a small set
-    # and joinedload is faster than selectinload for smaller result sets
-    base_query = db.query(models.FctAlbums).options(
-        load_only(
-            models.FctAlbums.album_key,
-            models.FctAlbums.year,
-            models.FctAlbums.artist,
-            models.FctAlbums.album,
-            models.FctAlbums.genre,
-            models.FctAlbums.subgenre,
-            models.FctAlbums.apple_music_album_id,
-            models.FctAlbums.apple_music_album_url,
-            models.FctAlbums.spotify_album_uri,
-            models.FctAlbums.image_url
-        ),
-        joinedload(models.FctAlbums.music_lists).load_only(
-            models.RelevantAlbums.points,
-            models.RelevantAlbums.total_points
-        ),
-        joinedload(models.FctAlbums.moods).load_only(
-            models.AlbumDescriptors.mood
-        )
-    ).filter(models.FctAlbums.album_key.in_(album_keys))
+    # Use joinedload for smaller result sets (< 200 albums) - single query is faster
+    # Use selectinload for larger result sets - avoids cartesian product explosion
+    # Threshold of 200 is a reasonable break-even point for most databases
+    num_albums = len(album_keys)
+    use_selectinload = num_albums > 200
+    
+    if use_selectinload:
+        # For large result sets, use selectinload to avoid cartesian products
+        base_query = db.query(models.FctAlbums).options(
+            load_only(
+                models.FctAlbums.album_key,
+                models.FctAlbums.year,
+                models.FctAlbums.artist,
+                models.FctAlbums.album,
+                models.FctAlbums.genre,
+                models.FctAlbums.subgenre,
+                models.FctAlbums.apple_music_album_id,
+                models.FctAlbums.apple_music_album_url,
+                models.FctAlbums.spotify_album_uri,
+                models.FctAlbums.image_url
+            ),
+            selectinload(models.FctAlbums.music_lists).load_only(
+                models.RelevantAlbums.points,
+                models.RelevantAlbums.total_points
+            ),
+            selectinload(models.FctAlbums.moods).load_only(
+                models.AlbumDescriptors.mood
+            )
+        ).filter(models.FctAlbums.album_key.in_(album_keys))
+    else:
+        # For smaller result sets, use joinedload - single query is more efficient
+        base_query = db.query(models.FctAlbums).options(
+            load_only(
+                models.FctAlbums.album_key,
+                models.FctAlbums.year,
+                models.FctAlbums.artist,
+                models.FctAlbums.album,
+                models.FctAlbums.genre,
+                models.FctAlbums.subgenre,
+                models.FctAlbums.apple_music_album_id,
+                models.FctAlbums.apple_music_album_url,
+                models.FctAlbums.spotify_album_uri,
+                models.FctAlbums.image_url
+            ),
+            joinedload(models.FctAlbums.music_lists).load_only(
+                models.RelevantAlbums.points,
+                models.RelevantAlbums.total_points
+            ),
+            joinedload(models.FctAlbums.moods).load_only(
+                models.AlbumDescriptors.mood
+            )
+        ).filter(models.FctAlbums.album_key.in_(album_keys))
     
     return base_query.all()
 
