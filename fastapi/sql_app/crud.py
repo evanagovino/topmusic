@@ -90,17 +90,21 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
         base_query = base_query.distinct()
     
     # Filter on AlbumDescriptors - require ALL selected moods (AND logic, not OR)
-    # Use a single EXISTS subquery with GROUP BY/HAVING for better performance
+    # Use a subquery to find albums that have ALL the requested moods
     if len(mood[0]) > 0:
-        # Use a subquery to find albums that have ALL the requested moods
+        # Create a subquery that finds album_keys with ALL requested moods
         # This uses GROUP BY and HAVING to ensure the album has all moods
         mood_subquery = db.query(models.AlbumDescriptors.album_key).filter(
-            models.AlbumDescriptors.album_key == models.FctAlbums.album_key,
             models.AlbumDescriptors.mood.in_(mood)
         ).group_by(models.AlbumDescriptors.album_key).having(
             func.count(func.distinct(models.AlbumDescriptors.mood)) == len(mood)
-        )
-        base_query = base_query.filter(exists(mood_subquery))
+        ).subquery()
+        
+        # Join with the subquery to filter albums that have all moods
+        base_query = base_query.join(
+            mood_subquery,
+            models.FctAlbums.album_key == mood_subquery.c.album_key
+        ).distinct()
     
     # Use selectinload instead of joinedload to avoid cartesian products
     # selectinload uses separate queries but is much faster when albums have many
