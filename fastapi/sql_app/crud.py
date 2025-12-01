@@ -1,5 +1,5 @@
-from sqlalchemy import func, text, cast, String
-from sqlalchemy.orm import Session, joinedload, load_only
+from sqlalchemy import func, text, cast, String, exists
+from sqlalchemy.orm import Session, joinedload, load_only, selectinload
 
 from . import models, schemas
 
@@ -56,60 +56,60 @@ def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenre
     return base_query.all()
 
 def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, mood: list, album_uri_required: bool):
-    # Start with a subquery to get distinct album_keys that match filters
-    # This avoids JSON column comparison issues
-    subquery = db.query(models.FctAlbums.album_key).filter(
+    # Build the main query with all filters applied directly
+    # This avoids the two-step approach and allows the database to optimize better
+    base_query = db.query(models.FctAlbums).filter(
         models.FctAlbums.year >= min_year, 
         models.FctAlbums.year <= max_year
     )
     
-    # Join and filter on RelevantAlbums if needed
-    needs_music_lists_join = len(list[0]) > 0 or len(publication[0]) > 0 or album_uri_required
-    if needs_music_lists_join:
-        subquery = subquery.join(
-            models.RelevantAlbums, 
+    # Filter on genre/subgenre first (most selective filters)
+    if len(genre[0]) > 0:
+        base_query = base_query.filter(models.FctAlbums.genre.in_(genre))
+    if len(subgenre[0]) > 0:
+        base_query = base_query.filter(models.FctAlbums.subgenre.in_(subgenre))
+    
+    # Use EXISTS subqueries for filtering on RelatedAlbums - more efficient than joins
+    # This avoids cartesian products and allows better query optimization
+    needs_music_lists_filter = len(list[0]) > 0 or len(publication[0]) > 0 or album_uri_required
+    if needs_music_lists_filter:
+        # Build EXISTS condition for RelevantAlbums
+        relevant_albums_exists = db.query(models.RelevantAlbums).filter(
             cast(models.FctAlbums.album_key, String) == models.RelevantAlbums.album_key
         )
+        
         if len(list[0]) > 0:
-            subquery = subquery.filter(models.RelevantAlbums.list.in_(list))
+            relevant_albums_exists = relevant_albums_exists.filter(
+                models.RelevantAlbums.list.in_(list)
+            )
         if len(publication[0]) > 0:
-            subquery = subquery.filter(models.RelevantAlbums.publication.in_(publication))
+            relevant_albums_exists = relevant_albums_exists.filter(
+                models.RelevantAlbums.publication.in_(publication)
+            )
         if album_uri_required:
-            subquery = subquery.filter(models.RelevantAlbums.spotify_album_uri.isnot(None))
+            relevant_albums_exists = relevant_albums_exists.filter(
+                models.RelevantAlbums.spotify_album_uri.isnot(None)
+            )
+        
+        base_query = base_query.filter(exists(relevant_albums_exists))
     
     # Filter on AlbumDescriptors - require ALL selected moods (AND logic, not OR)
-    # Note: We always load moods via joinedload below, so moods are always available
+    # Use a single EXISTS subquery with GROUP BY/HAVING for better performance
     if len(mood[0]) > 0:
         # Use a subquery to find albums that have ALL the requested moods
         # This uses GROUP BY and HAVING to ensure the album has all moods
         mood_subquery = db.query(models.AlbumDescriptors.album_key).filter(
+            models.AlbumDescriptors.album_key == models.FctAlbums.album_key,
             models.AlbumDescriptors.mood.in_(mood)
         ).group_by(models.AlbumDescriptors.album_key).having(
             func.count(func.distinct(models.AlbumDescriptors.mood)) == len(mood)
-        ).subquery()
-        
-        # Join the subquery to filter albums that have all moods
-        subquery = subquery.join(
-            mood_subquery,
-            models.FctAlbums.album_key == mood_subquery.c.album_key
         )
+        base_query = base_query.filter(exists(mood_subquery))
     
-    # Filter on genre/subgenre
-    if len(genre[0]) > 0:
-        subquery = subquery.filter(models.FctAlbums.genre.in_(genre))
-    if len(subgenre[0]) > 0:
-        subquery = subquery.filter(models.FctAlbums.subgenre.in_(subgenre))
-    
-    # Get distinct album_keys from subquery (only selecting album_key avoids JSON column issues)
-    album_keys = [row[0] for row in subquery.distinct().all()]
-    
-    if not album_keys:
-        return []
-    
-    # Now query only the columns we need from FctAlbums with relationships
-    # Using load_only() to only load the columns we actually use, which speeds up the query
-    # joinedload ensures moods and music_lists are always loaded and available
-    base_query = db.query(models.FctAlbums).options(
+    # Use selectinload instead of joinedload to avoid cartesian products
+    # selectinload uses separate queries but is much faster when albums have many
+    # related records in music_lists and moods
+    base_query = base_query.options(
         load_only(
             models.FctAlbums.album_key,
             models.FctAlbums.year,
@@ -122,14 +122,14 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
             models.FctAlbums.spotify_album_uri,
             models.FctAlbums.image_url
         ),
-        joinedload(models.FctAlbums.music_lists).load_only(
+        selectinload(models.FctAlbums.music_lists).load_only(
             models.RelevantAlbums.points,
             models.RelevantAlbums.total_points
         ),
-        joinedload(models.FctAlbums.moods).load_only(
+        selectinload(models.FctAlbums.moods).load_only(
             models.AlbumDescriptors.mood
         )
-    ).filter(models.FctAlbums.album_key.in_(album_keys))
+    )
     
     return base_query.all()
 
