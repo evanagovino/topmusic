@@ -214,7 +214,9 @@ def get_relevant_albums(min_year: int,
                              list=list,
                              mood=mood,
                              points_weight=points_weight,
-                             album_uri_required=False
+                             album_uri_required=False,
+                             sort_by_column='weighted_rank',
+                             album_limit=album_limit
                             )
     for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True)[:album_limit]:
         output['albums'][value[0]] = value[1]
