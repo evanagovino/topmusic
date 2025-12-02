@@ -14,6 +14,7 @@ class FctAlbums(Base):
     subgenre = Column(String)
     year = Column(Integer)
     eligible_points = Column(Integer)
+    weighted_rank = Column(Integer)
     album_points = Column(Integer)
     album_points_percentage = Column(Float)
     spotify_danceability_clean = Column(Float)

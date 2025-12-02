@@ -68,6 +68,10 @@ def get_relevant_albums(min_year: int,
 
     Returned in list format, used for Flutterflow
     """
+    if order_by_recency:
+        sort_by_column = 'album_key'
+    else:
+        sort_by_column = 'weighted_rank'
     x = pull_relevant_albums(db=db, 
                              min_year=min_year,
                              max_year=max_year, 
@@ -77,7 +81,9 @@ def get_relevant_albums(min_year: int,
                              list=list,
                              mood=mood,
                              points_weight=points_weight,
-                             album_uri_required=False
+                             album_uri_required=False,
+                             sort_by_column=sort_by_column,
+                             album_limit=album_limit
                              )
     new_dict = []
     if order_by_recency:
