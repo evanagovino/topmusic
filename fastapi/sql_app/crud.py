@@ -55,7 +55,7 @@ def get_tracks_by_features(db: Session, excluded_genres: list, excluded_subgenre
         base_query = base_query.filter(~models.TrackFeatures.time_signature_clean.in_(excluded_time_signatures))
     return base_query.all()
 
-def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, mood: list, album_uri_required: bool):
+def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, subgenre: list, publication: list, list: list, mood: list, album_uri_required: bool, sort_by_column: str = 'weighted_rank', album_limit: int = 100):
     # Step 1: Get album_keys that match all filters (no relationships loaded)
     # This is fast because we're only selecting album_key, avoiding JSON column issues
     subquery = db.query(models.FctAlbums.album_key).filter(
@@ -74,7 +74,7 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
     if needs_music_lists_join:
         subquery = subquery.join(
             models.RelevantAlbums, 
-            cast(models.FctAlbums.album_key, String) == models.RelevantAlbums.album_key
+            models.FctAlbums.album_key == models.RelevantAlbums.album_key
         )
         if len(list[0]) > 0:
             subquery = subquery.filter(models.RelevantAlbums.list.in_(list))
@@ -157,6 +157,16 @@ def get_relevant_albums(db: Session, min_year: int, max_year: int, genre: list, 
                 models.AlbumDescriptors.mood
             )
         ).filter(models.FctAlbums.album_key.in_(album_keys))
+    
+    # Apply sorting - only weighted_rank and album_key are supported
+    if sort_by_column == 'weighted_rank':
+        base_query = base_query.order_by(models.FctAlbums.weighted_rank.asc())
+    elif sort_by_column == 'album_key':
+        base_query = base_query.order_by(models.FctAlbums.album_key.desc())
+    
+    # Apply limit
+    if album_limit > 0:
+        base_query = base_query.limit(album_limit)
     
     return base_query.all()
 

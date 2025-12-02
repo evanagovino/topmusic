@@ -268,15 +268,17 @@ def get_random_track(db, weight_by_popularity = True):
     return track_choice
 
 def pull_relevant_albums(db, 
-                             min_year, 
-                             max_year, 
-                             genre, 
-                             subgenre, 
-                             publication, 
-                             list,
-                             mood,
-                             points_weight,
-                             album_uri_required):
+                         min_year, 
+                         max_year, 
+                         genre, 
+                         subgenre, 
+                         publication, 
+                         list,
+                         mood,
+                         points_weight,
+                         album_uri_required,
+                         sort_by_column,
+                         album_limit):
     db_albums = crud.get_relevant_albums(db, 
                                          min_year=min_year, 
                                          max_year=max_year, 
@@ -285,7 +287,9 @@ def pull_relevant_albums(db,
                                          publication=publication, 
                                          list=list,
                                          mood=mood,
-                                         album_uri_required=album_uri_required
+                                         album_uri_required=album_uri_required,
+                                         sort_by_column=sort_by_column,
+                                         album_limit=album_limit
                                          )
     if db_albums is None:
         raise HTTPException(status_code=404, detail="No albums that match criteria")
