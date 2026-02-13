@@ -5,45 +5,30 @@ services:
     build:
       context: fastapi
       dockerfile: Dockerfile
-    environment:
-      - LLM_ENDPOINT=http://ollama:11434
     env_file:
       - .env
     volumes:
       - .:/app
-    restart: unless-stopped
 
-  streamlit:
+  react-frontend:
     build:
-      context: streamlit
+      context: frontend
       dockerfile: Dockerfile
-    container_name: streamlit
-    env_file:
-      - .env
     depends_on:
       - fastapi
-    restart: unless-stopped
 
-  reverse:
-    container_name: reverse
-    hostname: reverse
-    build: ./nginx
+  web:
+    build:
+      context: nginx
+      dockerfile: Dockerfile
     ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - streamlit
-      - fastapi
+      - 80:80
+      - 443:443
     volumes:
+      - ./privacy-policy.html:/var/www/html/privacy-policy.html:ro
       - ./nginx/conf/:/etc/nginx/conf.d/:ro
       - ./certbot/www:/var/www/certbot/:ro
       - ./certbot/conf/:/etc/nginx/ssl/:ro
-      - ./privacy-policy.html:/var/www/html/privacy-policy.html:ro
-    restart: unless-stopped
-
-  certbot:
-    image: certbot/certbot:latest
-    volumes:
-      - ./certbot/www/:/var/www/certbot/:rw
-      - ./certbot/conf/:/etc/letsencrypt/:rw
-
+    depends_on:
+      - fastapi
+      - react-frontend
