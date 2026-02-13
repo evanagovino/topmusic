@@ -23,6 +23,15 @@ services:
     depends_on:
       - fastapi
 
+  react-frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    depends_on:
+      - fastapi
+
   web:
     image: nginx:alpine
     ports:

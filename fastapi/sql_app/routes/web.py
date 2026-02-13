@@ -636,6 +636,15 @@ def get_tracks_by_features(
 def get_apple_developer_token(api_key: str = Depends(verify_api_key)):
     return _get_apple_music_auth_header(api_key)
 
+@router.get("/get_developer_token/")
+def get_developer_token():
+    """
+    Public endpoint to get a developer token for MusicKit JS.
+    The Apple private key stays server-side; only the signed JWT is returned.
+    """
+    api_key = os.getenv('API_KEY')
+    return _get_apple_music_auth_header(api_key)
+
 @router.get("/get_apple_music_auth_page/", response_class=HTMLResponse)
 def get_apple_music_auth_page(request: Request):
     api_key = os.getenv('API_KEY')
