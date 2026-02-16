@@ -71,7 +71,7 @@ def test_llm_claude(prompt):
     try:
         start_time = time.time()
         response = client.messages.create(
-            model="claude-3-5-haiku-latest",
+            model="claude-haiku-4-5",
             max_tokens=1024,
             messages=[
                 {"role": "user", "content": f"{prompt}"}
