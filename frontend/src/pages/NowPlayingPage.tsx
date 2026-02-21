@@ -11,6 +11,7 @@ export default function NowPlayingPage() {
   const togglePlayPause = usePlayerStore((s) => s.togglePlayPause)
   const playTrackAtIndex = usePlayerStore((s) => s.playTrackAtIndex)
   const lovedTrackIds = usePlayerStore((s) => s.lovedTrackIds)
+  const pendingLoveIds = usePlayerStore((s) => s.pendingLoveIds)
   const toggleLove = usePlayerStore((s) => s.toggleLove)
   const isAuthorized = useAuthStore((s) => s.isAuthorized)
   const createPlaylist = useAuthStore((s) => s.createPlaylist)
@@ -136,6 +137,7 @@ export default function NowPlayingPage() {
               {upNext.map((track, i) => {
                 const queueIndex = currentIndex + 1 + i
                 const isLoved = lovedTrackIds.has(track.track_id)
+                const isPendingLove = pendingLoveIds.has(track.track_id)
                 return (
                   <div
                     key={track.track_id + queueIndex}
@@ -169,14 +171,15 @@ export default function NowPlayingPage() {
                       <button
                         type="button"
                         onClick={() => toggleLove(track.track_id)}
-                        className="flex-shrink-0 rounded p-2 transition-colors hover:bg-gray-700"
+                        disabled={isPendingLove}
+                        className="flex-shrink-0 rounded p-2 transition-colors hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={isLoved ? 'Remove from favorites' : 'Add to favorites'}
                       >
                         <svg
-                          className={`h-4 w-4 ${isLoved ? 'text-pink-500' : 'text-gray-500'}`}
-                          fill={isLoved ? 'currentColor' : 'none'}
+                          className={`h-4 w-4 ${isPendingLove ? 'animate-pulse text-gray-500' : isLoved ? 'text-pink-500' : 'text-gray-500'}`}
+                          fill={isLoved && !isPendingLove ? 'currentColor' : 'none'}
                           stroke="currentColor"
-                          strokeWidth={isLoved ? 0 : 2}
+                          strokeWidth={isLoved && !isPendingLove ? 0 : 2}
                           viewBox="0 0 24 24"
                         >
                           <path

@@ -196,20 +196,13 @@ export default function TopAlbumsPage() {
         </div>
 
         {isAuthorized && (
-          <div className="flex flex-col gap-2">
-<button
+          <div className="self-end">
+            <button
               type="button"
               onClick={handlePlay}
               className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Play in Browser
-            </button>
-            <button
-              type="button"
-              onClick={handleExport}
-              className="w-full rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white hover:bg-pink-500"
-            >
-              Export to Apple Music
             </button>
           </div>
         )}

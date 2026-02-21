@@ -300,17 +300,6 @@ export default function RadioPage() {
           </div>
         )}
 
-        {isAuthorized && currentTracks && currentTracks.length > 0 && (
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={handleExport}
-              className="w-full rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white hover:bg-pink-500"
-            >
-              Export to Apple Music
-            </button>
-          </div>
-        )}
       </Sidebar>
 
       <div className="flex-1 p-4 sm:p-6">
