@@ -13,6 +13,7 @@ interface PlayerState {
   duration: number
   isPlayerVisible: boolean
   lovedTrackIds: Set<string>
+  pendingLoveIds: Set<string>
 
   playTracks: (tracks: Track[], name?: string) => Promise<void>
   playTrackAtIndex: (tracks: Track[], index: number) => Promise<void>
@@ -22,7 +23,7 @@ interface PlayerState {
   next: () => Promise<void>
   previous: () => Promise<void>
   seekTo: (time: number) => Promise<void>
-  toggleLove: (trackId: string) => Promise<void>
+  toggleLove: (trackId: string) => void
   isTrackLoved: (trackId: string) => boolean
   close: () => void
   bindEvents: () => void
@@ -56,6 +57,23 @@ function parseBadIds(err: unknown): Set<string> {
   return ids
 }
 
+// Serial queue for Apple Music rating requests to avoid rate limiting
+const _loveQueue: Array<() => Promise<void>> = []
+let _loveQueueRunning = false
+
+async function drainLoveQueue() {
+  if (_loveQueueRunning) return
+  _loveQueueRunning = true
+  while (_loveQueue.length > 0) {
+    const task = _loveQueue.shift()!
+    await task()
+    if (_loveQueue.length > 0) {
+      await new Promise((r) => setTimeout(r, 400))
+    }
+  }
+  _loveQueueRunning = false
+}
+
 let _stalledTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearStalledTimer() {
@@ -80,6 +98,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   duration: 0,
   isPlayerVisible: false,
   lovedTrackIds: new Set<string>(),
+  pendingLoveIds: new Set<string>(),
 
   playTracks: async (tracks, name) => {
     const instance = getInstance()
@@ -268,30 +287,52 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  toggleLove: async (trackId: string) => {
+  toggleLove: (trackId: string) => {
     const instance = getInstance()
     if (!instance || !instance.isAuthorized) return
 
-    const loved = get().lovedTrackIds
-    const isLoved = loved.has(trackId)
+    // Prevent queuing a duplicate request for the same track
+    if (get().pendingLoveIds.has(trackId)) return
+    set((s) => ({ pendingLoveIds: new Set(s.pendingLoveIds).add(trackId) }))
 
-    try {
-      const success = isLoved
-        ? await unloveSong(instance, trackId)
-        : await loveSong(instance, trackId)
+    // Snapshot loved state now so the intent is captured at click time
+    const isLoved = get().lovedTrackIds.has(trackId)
 
-      if (success) {
-        const next = new Set(loved)
-        if (isLoved) {
-          next.delete(trackId)
-        } else {
-          next.add(trackId)
+    _loveQueue.push(async () => {
+      const attempt = () => isLoved ? unloveSong(instance, trackId) : loveSong(instance, trackId)
+      try {
+        let success = await attempt()
+
+        if (!success) {
+          await new Promise((r) => setTimeout(r, 600))
+          success = await attempt()
         }
-        set({ lovedTrackIds: next })
+
+        if (success) {
+          const next = new Set(get().lovedTrackIds)
+          if (isLoved) {
+            next.delete(trackId)
+          } else {
+            next.add(trackId)
+          }
+          set({ lovedTrackIds: next })
+        } else {
+          console.error(`[Player] toggleLove failed after retry for track ${trackId}`)
+          alert('Could not update Favorite Songs. Please try again.')
+        }
+      } catch (err) {
+        console.error('[Player] toggleLove failed:', err)
+        alert('Could not update Favorite Songs. Please try again.')
+      } finally {
+        set((s) => {
+          const next = new Set(s.pendingLoveIds)
+          next.delete(trackId)
+          return { pendingLoveIds: next }
+        })
       }
-    } catch (err) {
-      console.error('[Player] toggleLove failed:', err)
-    }
+    })
+
+    drainLoveQueue()
   },
 
   isTrackLoved: (trackId: string) => {

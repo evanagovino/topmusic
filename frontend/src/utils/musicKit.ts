@@ -168,6 +168,10 @@ export async function loveSong(
       }),
     },
   )
+  if (!response.ok) {
+    const body = await response.text().catch(() => '(unreadable)')
+    console.error(`[loveSong] ${response.status} ${response.statusText} — ${body}`)
+  }
   return response.ok
 }
 
@@ -188,6 +192,10 @@ export async function unloveSong(
       },
     },
   )
+  if (!response.ok && response.status !== 204) {
+    const body = await response.text().catch(() => '(unreadable)')
+    console.error(`[unloveSong] ${response.status} ${response.statusText} — ${body}`)
+  }
   return response.ok || response.status === 204
 }
 

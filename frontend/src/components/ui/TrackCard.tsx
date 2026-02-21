@@ -18,10 +18,12 @@ export default function TrackCard({ track, position, allTracks, trackIndex }: Tr
   const isPlaying = usePlayerStore((s) => s.isPlaying)
 
   const lovedTrackIds = usePlayerStore((s) => s.lovedTrackIds)
+  const pendingLoveIds = usePlayerStore((s) => s.pendingLoveIds)
   const toggleLove = usePlayerStore((s) => s.toggleLove)
 
   const isCurrentTrack = currentTrack?.track_id === track.track_id
   const isLoved = lovedTrackIds.has(track.track_id)
+  const isPendingLove = pendingLoveIds.has(track.track_id)
   const canPlay = isAuthorized && allTracks && trackIndex !== undefined
 
   function handlePlay() {
@@ -76,14 +78,15 @@ export default function TrackCard({ track, position, allTracks, trackIndex }: Tr
           <button
             type="button"
             onClick={() => toggleLove(track.track_id)}
-            className="mt-1 flex items-center gap-1.5 py-1 text-left text-xs font-medium text-gray-400 hover:text-gray-200"
+            disabled={isPendingLove}
+            className="mt-1 flex items-center gap-1.5 py-1 text-left text-xs font-medium text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={isLoved ? 'Remove from favorites' : 'Add to favorites'}
           >
             <svg
-              className={`h-4 w-4 ${isLoved ? 'text-pink-500' : 'text-gray-400'}`}
-              fill={isLoved ? 'currentColor' : 'none'}
+              className={`h-4 w-4 ${isPendingLove ? 'animate-pulse text-gray-400' : isLoved ? 'text-pink-500' : 'text-gray-400'}`}
+              fill={isLoved && !isPendingLove ? 'currentColor' : 'none'}
               stroke="currentColor"
-              strokeWidth={isLoved ? 0 : 2}
+              strokeWidth={isLoved && !isPendingLove ? 0 : 2}
               viewBox="0 0 24 24"
             >
               <path
@@ -92,7 +95,7 @@ export default function TrackCard({ track, position, allTracks, trackIndex }: Tr
                 d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
               />
             </svg>
-            {isLoved ? 'Loved' : 'Love'}
+            {isPendingLove ? '...' : isLoved ? 'Loved' : 'Love'}
           </button>
         )}
 
