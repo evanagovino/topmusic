@@ -352,7 +352,9 @@ def get_recommended_tracks(artist_id: str = None,
                                  list=[''],
                                  mood=[''],
                                  points_weight=0.5,
-                                 album_uri_required=False
+                                 album_uri_required=False,
+                                 sort_by_column='weighted_rank',
+                                 album_limit=100
                                  )
         new_dict = {}
         for value in sorted(x['albums'].items(), key=lambda x: x[1]['weighted_rank'], reverse=True):
