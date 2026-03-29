@@ -10,14 +10,15 @@ interface RelevantAlbumsParams {
   publication?: string[]
   list?: string[]
   mood?: string[]
+  orderByRecency?: boolean
   enabled?: boolean
 }
 
 export function useRelevantAlbums(params: RelevantAlbumsParams) {
-  const { minYear, maxYear, genre, subgenre, publication, list, mood, enabled = true } = params
+  const { minYear, maxYear, genre, subgenre, publication, list, mood, orderByRecency = false, enabled = true } = params
 
   return useQuery({
-    queryKey: ['relevantAlbums', minYear, maxYear, genre, subgenre, publication, list, mood],
+    queryKey: ['relevantAlbums', minYear, maxYear, genre, subgenre, publication, list, mood, orderByRecency],
     queryFn: async () => {
       const sp = new URLSearchParams()
       sp.set('min_year', String(minYear))
@@ -41,12 +42,18 @@ export function useRelevantAlbums(params: RelevantAlbumsParams) {
         `/web/get_relevant_albums/?${sp.toString()}`,
       )
 
-      // Convert dict response to sorted array
+      // Convert dict response to array
       const albums: AlbumDict[] = Object.entries(data.albums).map(([key, album]) => ({
         ...album,
         album_key: key,
       }))
-      albums.sort((a, b) => (b.weighted_rank ?? 0) - (a.weighted_rank ?? 0))
+
+      if (orderByRecency) {
+        albums.sort((a, b) => Number(b.album_key) - Number(a.album_key))
+      } else {
+        albums.sort((a, b) => (b.weighted_rank ?? 0) - (a.weighted_rank ?? 0))
+      }
+
       return albums
     },
     enabled,

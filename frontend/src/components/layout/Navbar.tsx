@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 
 const links = [
@@ -19,7 +19,7 @@ export default function Navbar() {
   return (
     <nav className="border-b border-gray-800 bg-gray-900 px-4 py-3 md:px-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">TopMusic</h1>
+        <Link to="/home" className="text-xl font-bold text-white hover:text-gray-300">TopMusic</Link>
 
         {/* Desktop nav links */}
         <div className="hidden md:flex md:items-center md:gap-6">

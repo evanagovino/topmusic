@@ -14,6 +14,7 @@ import json
 import datetime
 import os
 import requests
+from collections import Counter
 
 
 router = APIRouter(prefix="/web", tags=["Web"])
@@ -778,6 +779,7 @@ def get_user_track_data(
     music_user_token: str = Header(..., alias="Music-User-Token"),
     api_key: str = Depends(verify_api_key),
     track_limit: int = 100,
+    db: Session = Depends(get_db)
 ):
     """
     Return data for a user's tracks
@@ -789,4 +791,25 @@ def get_user_track_data(
         'Music-User-Token': music_user_token
     }
     tracks = _get_apple_music_recently_played_tracks(headers, track_limit)
-    return tracks
+    track_ids = list(set([i['id'] for i in tracks]))
+    db_tracks = crud.get_track_data_multiple_tracks(db, track_ids=track_ids)
+    if len(db_tracks) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    x = {'tracks': []}
+    for position, value in enumerate(db_tracks):
+        d = {}
+        for feature in ['apple_music_track_id', 'album_key', 'artist', 'album', 'genre', 'subgenre', 'year', 'image_url', 'apple_music_album_id', 'apple_music_album_url', 'spotify_album_uri', 'duration_ms', 'apple_music_track_name', 'track_popularity', 'album_points', 'eligible_points', 'tempo_raw', 'danceability_clean', 'energy_clean', 'instrumentalness_clean', 'valence_clean', 'speechiness_clean']:
+            d[feature] = getattr(value, feature)
+        x['tracks'].append(d)
+    all_results = []
+    total_track_length = len(x['tracks'])
+    result = Counter(i['genre'] for i in x['tracks']).most_common(3)
+    for i in result:
+        result_d = {
+            'topic': i[0],
+            'type': 'genre',
+            'count': i[1],
+            'rate': i[1] / total_track_length
+        }
+        all_results.append(result_d)
+    return all_results

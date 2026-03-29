@@ -5,6 +5,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner'
 import { useAuthStore } from './store/authStore'
 import { usePlayerStore } from './store/playerStore'
 
+const HomePage = lazy(() => import('./pages/HomePage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const TopAlbumsPage = lazy(() => import('./pages/TopAlbumsPage'))
 const RadioPage = lazy(() => import('./pages/RadioPage'))
@@ -29,7 +30,8 @@ export default function App() {
     <AppLayout>
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/top-albums" replace />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage />} />
           <Route path="/top-albums" element={<TopAlbumsPage />} />
           <Route path="/radio" element={<RadioPage />} />
           <Route path="/now-playing" element={<NowPlayingPage />} />
