@@ -503,8 +503,27 @@ def get_track_data(track_id: str,
         raise HTTPException(status_code=404, detail="No tracks that match criteria")
     x = {}
     for position, value in enumerate(db_tracks):
-        for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
+        # for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
+        for feature in ['apple_music_track_id', 'album_key', 'artist', 'album', 'genre', 'subgenre', 'year', 'image_url', 'apple_music_album_id', 'apple_music_album_url', 'spotify_album_uri', 'duration_ms', 'apple_music_track_name', 'track_popularity', 'album_points', 'eligible_points', 'tempo_raw', 'danceability_clean', 'energy_clean', 'instrumentalness_clean', 'valence_clean', 'speechiness_clean']:
             x[feature] = getattr(value, feature)
+    return x
+
+@router.get('/get_track_data_multiple_tracks/', response_model=schemas.TracksList)
+def get_track_data_multiple_tracks(track_ids: List[str] = Query([None]),
+                                   db: Session = Depends(get_db)
+                                   ):
+    """
+    Return data for a multiple tracks.
+    """
+    db_tracks = crud.get_track_data_multiple_tracks(db, track_ids=track_ids)
+    if len(db_tracks) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    x = {'tracks': []}
+    for position, value in enumerate(db_tracks):
+        d = {}
+        for feature in ['apple_music_track_id', 'album_key', 'artist', 'album', 'genre', 'subgenre', 'year', 'image_url', 'apple_music_album_id', 'apple_music_album_url', 'spotify_album_uri', 'duration_ms', 'apple_music_track_name', 'track_popularity', 'album_points', 'eligible_points', 'tempo_raw', 'danceability_clean', 'energy_clean', 'instrumentalness_clean', 'valence_clean', 'speechiness_clean']:
+            d[feature] = getattr(value, feature)
+        x['tracks'].append(d)
     return x
 
 @router.get('/get_album_accolades_multiple_albums/', response_model=schemas.Albums)
