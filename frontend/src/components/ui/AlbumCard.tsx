@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import MoodBadge from './MoodBadge'
 import AccoladesPanel from './AccoladesPanel'
 import type { Accolade } from '../../api/types'
+import { useTracksFromAlbums } from '../../api/hooks/useTracksFromAlbums'
+import { usePlayerStore } from '../../store/playerStore'
+import { useAuthStore } from '../../store/authStore'
 
 interface AlbumCardProps {
   position?: number
+  albumKey?: string
   artist: string
   album: string
   genre: string
@@ -19,6 +23,7 @@ interface AlbumCardProps {
 
 export default function AlbumCard({
   position,
+  albumKey,
   artist,
   album,
   genre,
@@ -32,6 +37,24 @@ export default function AlbumCard({
 }: AlbumCardProps) {
   const [accoladesOpen, setAccoladesOpen] = useState(false)
   const [listenOpen, setListenOpen] = useState(false)
+  const [fetchEnabled, setFetchEnabled] = useState(false)
+  const [pendingPlay, setPendingPlay] = useState(false)
+
+  const isAuthorized = useAuthStore((s) => s.isAuthorized)
+  const playTracks = usePlayerStore((s) => s.playTracks)
+
+  const { data: tracks, isFetching } = useTracksFromAlbums(
+    albumKey ? [albumKey] : [],
+    500,
+    fetchEnabled && !!albumKey,
+  )
+
+  useEffect(() => {
+    if (pendingPlay && tracks && tracks.length > 0 && !isFetching) {
+      playTracks(tracks, `${artist} - ${album}`)
+      setPendingPlay(false)
+    }
+  }, [pendingPlay, tracks, isFetching, playTracks, artist, album])
 
   return (
     <div className="flex gap-3 rounded-xl bg-gray-900 p-3 sm:gap-4 sm:p-4">
@@ -83,7 +106,20 @@ export default function AlbumCard({
           {listenOpen ? '- Listen' : '+ Listen'}
         </button>
         {listenOpen && (
-          <div className="mt-1">
+          <div className="mt-1 flex flex-wrap gap-2">
+            {isAuthorized && albumKey && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFetchEnabled(true)
+                  setPendingPlay(true)
+                }}
+                disabled={isFetching && pendingPlay}
+                className="inline-block rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+              >
+                {isFetching && pendingPlay ? 'Loading…' : 'Listen'}
+              </button>
+            )}
             {appleMusicUrl ? (
               <a
                 href={appleMusicUrl}

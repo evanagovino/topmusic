@@ -47,6 +47,7 @@ export default function AlbumGrid({
         <AlbumCard
           key={a.album_key + i}
           position={showPositions ? startIndex + i : undefined}
+          albumKey={a.album_key}
           artist={a.artist}
           album={a.album}
           genre={a.genre}
