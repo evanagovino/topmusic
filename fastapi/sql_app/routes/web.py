@@ -3,7 +3,7 @@ from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter, Request, Header, Response, Cookie
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication, _get_apple_music_auth_header, verify_api_key
+from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication, _get_apple_music_auth_header, verify_api_key, _get_apple_music_recently_played_tracks
 from .session_utils import get_api_key, return_all_sessions_api_keys, get_user_token_developer_token, create_session, create_api_key, serializer, SESSION_COOKIE_NAME, SESSION_MAX_AGE
 from sqlalchemy.orm import Session
 import numpy as np
@@ -753,3 +753,21 @@ async def create_apple_music_playlist(session_info: dict = Depends(get_api_key),
         return response.json()
     else:
         return None
+
+@router.get('/get_user_track_data/')
+def get_user_track_data(
+    music_user_token: str = Header(..., alias="Music-User-Token"),
+    api_key: str = Depends(verify_api_key),
+    track_limit: int = 100,
+):
+    """
+    Return data for a user's tracks
+    """
+    encoded_heading = _get_apple_music_auth_header(api_key)
+    developer_token = encoded_heading['developer_token']
+    headers = {
+        'Authorization': f'Bearer {developer_token}',
+        'Music-User-Token': music_user_token
+    }
+    tracks = _get_apple_music_recently_played_tracks(headers, track_limit)
+    return tracks

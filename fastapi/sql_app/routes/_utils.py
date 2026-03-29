@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 import jwt
+import requests
 
 def normalize_weights(weights):
     """
@@ -772,3 +773,37 @@ def _get_apple_music_auth_header(api_key: str):
 
     encoded_heading = jwt.encode(payload, SECRET, algorithm=ALG, headers=headers)
     return {'developer_token': encoded_heading}
+
+def _get_apple_music_recently_played_tracks(headers: dict, track_limit: int):
+    BASE_URL = "https://api.music.apple.com/v1/me/recent/played/tracks"
+    PAGE_SIZE = 30  # API max per request
+    all_tracks = []
+    offset = 0
+    while len(all_tracks) < track_limit:
+        # Calculate how many tracks to request this page
+        remaining = track_limit - len(all_tracks)
+        page_limit = min(PAGE_SIZE, remaining)
+
+        params = {
+            "limit": page_limit,
+            "offset": offset,
+        }
+
+        response = requests.get(BASE_URL, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        tracks = data.get("data", [])
+        if not tracks:
+            break  # No more tracks available
+
+        all_tracks.extend(tracks)
+
+        # Stop if there's no next page
+        if not data.get("next"):
+            break
+
+        # Advance offset for next page
+        offset += len(tracks)
+
+    return all_tracks[:track_limit]
