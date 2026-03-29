@@ -61,15 +61,28 @@ class TracksLLMResponse(BaseModel):
         orm_mode = True
 
 class TrackDetails(BaseModel):
-    track_id: str
-    artist_id: str
-    track_name: str
-    track_popularity: int
+    apple_music_track_id: str
+    album_key: int
+    artist: str
+    album: str
     genre: str
     subgenre: str
     year: int
-    artist: str
     image_url: str
+    apple_music_album_id: str
+    apple_music_album_url: str
+    spotify_album_uri: str
+    duration_ms: int
+    apple_music_track_name: str
+    track_popularity: int
+    album_points: int
+    eligible_points: int
+    tempo_raw: float
+    danceability_clean: float
+    energy_clean: float
+    instrumentalness_clean: float
+    valence_clean: float
+    speechiness_clean: float
 
 class Albums(BaseModel):
     albums: dict

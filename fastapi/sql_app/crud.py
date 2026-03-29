@@ -215,7 +215,10 @@ def get_album_track_details(db: Session, genre: str = None):
         return db.query(models.AlbumFeatures).all()
 
 def get_track_data(db: Session, track_id: str):
-    return db.query(models.TrackFeatures).filter(models.TrackFeatures.track_id == track_id).all()
+    return db.query(models.FctTracks).filter(models.FctTracks.apple_music_track_id == track_id).all()
+
+def get_track_data_multiple_tracks(db: Session, track_ids: list):
+    return db.query(models.FctTracks).filter(models.FctTracks.apple_music_track_id.in_(track_ids)).all()
 
 def get_relevant_artists(db: Session, search_string: str):
     tsquery = func.plainto_tsquery(f'{search_string}:*')
