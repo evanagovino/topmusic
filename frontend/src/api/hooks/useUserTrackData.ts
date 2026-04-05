@@ -6,6 +6,7 @@ interface UserTrackDataItem {
   type: string
   count: number
   rate: number
+  album_keys: string[]
 }
 
 export function useUserTrackData(musicUserToken: string | null, enabled: boolean) {

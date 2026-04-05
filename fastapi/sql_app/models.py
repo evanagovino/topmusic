@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, DateTime
 from sqlalchemy.orm import relationship
 from .database import Base
 from typing import List
@@ -174,6 +174,27 @@ class AlbumFeatures(Base):
 #     tempo_clean = Column(Float)
 #     time_signature_raw = Column(Float)
 #     tempo_mapped = Column(Float)
+
+class UserToken(Base):
+    __tablename__ = 'user_tokens'
+    __table_args__ = {"schema": "user_data"}
+
+    api_key = Column(String, primary_key=True)
+    music_user_token = Column(String, nullable=False)
+    last_seen_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+class UserListeningPreference(Base):
+    __tablename__ = 'user_listening_preferences'
+    __table_args__ = {"schema": "user_data"}
+
+    api_key = Column(String, primary_key=True)
+    topic = Column(String, primary_key=True)
+    type = Column(String, nullable=False)
+    count = Column(Integer, nullable=False)
+    rate = Column(Float, nullable=False)
+    album_keys = Column(JSON, nullable=False)
+    computed_at = Column(DateTime, nullable=False)
 
 class RelevantAlbums(Base):
     __tablename__ = "dim_music_lists"

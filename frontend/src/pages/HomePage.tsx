@@ -2,6 +2,7 @@ import AlbumCardCompact from '../components/ui/AlbumCardCompact'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { useRelevantAlbums } from '../api/hooks/useRelevantAlbums'
 import { useUserTrackData } from '../api/hooks/useUserTrackData'
+import { useSimilarAlbumsForGenre } from '../api/hooks/useSimilarAlbumsForGenre'
 import { useAuthStore } from '../store/authStore'
 
 const CURRENT_YEAR = 2026
@@ -40,15 +41,12 @@ function AlbumRow({ title, isLoading, albums }: AlbumRowProps) {
   )
 }
 
-function GenreAlbumRow({ genre }: { genre: string }) {
-  const { data, isLoading } = useRelevantAlbums({
-    minYear: 2000,
-    maxYear: CURRENT_YEAR,
-    genre: [genre],
-  })
+function GenreAlbumRow({ topic, type, albumKeys }: { topic: string; type: string; albumKeys: string[] }) {
+  const { data, isLoading } = useSimilarAlbumsForGenre(albumKeys)
+  const title = type === 'artist' ? `More Albums Like ${topic}` : `Recommended ${topic} Albums`
   return (
     <AlbumRow
-      title={`Recommended ${genre} Albums`}
+      title={title}
       isLoading={isLoading}
       albums={data}
     />
@@ -100,7 +98,7 @@ export default function HomePage() {
           <div className="px-4 sm:px-6"><LoadingSpinner /></div>
         ) : (
           userTrackData!.map((item) => (
-            <GenreAlbumRow key={item.topic} genre={item.topic} />
+            <GenreAlbumRow key={item.topic} topic={item.topic} type={item.type} albumKeys={item.album_keys} />
           ))
         )
       ) : (

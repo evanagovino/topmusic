@@ -784,6 +784,21 @@ def get_user_track_data(
     """
     Return data for a user's tracks
     """
+    crud.upsert_user_token(db, api_key=api_key, music_user_token=music_user_token)
+
+    cached = crud.get_fresh_user_listening_preferences(db, api_key=api_key)
+    if cached:
+        return [
+            {
+                'topic': row.topic,
+                'type': row.type,
+                'count': row.count,
+                'rate': row.rate,
+                'album_keys': row.album_keys,
+            }
+            for row in cached
+        ]
+
     encoded_heading = _get_apple_music_auth_header(api_key)
     developer_token = encoded_heading['developer_token']
     headers = {
@@ -803,13 +818,69 @@ def get_user_track_data(
         x['tracks'].append(d)
     all_results = []
     total_track_length = len(x['tracks'])
-    result = Counter(i['genre'] for i in x['tracks']).most_common(3)
-    for i in result:
-        result_d = {
+
+    top_artist = Counter(i['artist'] for i in x['tracks']).most_common(1)
+    for i in top_artist:
+        artist_album_keys = list(set(
+            str(t['album_key']) for t in x['tracks'] if t['artist'] == i[0]
+        ))
+        all_results.append({
+            'topic': i[0],
+            'type': 'artist',
+            'count': i[1],
+            'rate': i[1] / total_track_length,
+            'album_keys': artist_album_keys
+        })
+
+    top_genres = Counter(i['genre'] for i in x['tracks']).most_common(2)
+    for i in top_genres:
+        genre_album_keys = list(set(
+            str(t['album_key']) for t in x['tracks'] if t['genre'] == i[0]
+        ))
+        all_results.append({
             'topic': i[0],
             'type': 'genre',
             'count': i[1],
-            'rate': i[1] / total_track_length
-        }
-        all_results.append(result_d)
+            'rate': i[1] / total_track_length,
+            'album_keys': genre_album_keys
+        })
+
+    crud.upsert_user_listening_preferences(db, api_key=api_key, results=all_results)
     return all_results
+
+@router.get('/get_similar_albums_for_user_genre/')
+def get_similar_albums_for_user_genre(
+    album_keys: List[str] = Query([]),
+    publication_weight: float = 0.5,
+    num_results: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Return similar albums to the given album_keys, filtered to the same genre.
+    """
+    if not album_keys:
+        raise HTTPException(status_code=400, detail="No album_keys provided")
+    album_keys = [f"'{i}'" for i in album_keys]
+    db_albums = crud.get_similar_albums_multiple_albums(db, album_keys=album_keys, publication_weight=publication_weight, num_results=num_results * len(album_keys))
+    if len(db_albums) == 0:
+        raise HTTPException(status_code=404, detail="No similar albums found")
+    albums = []
+    seen = set()
+    for row in db_albums:
+        if row.album_key in seen:
+            continue
+        seen.add(row.album_key)
+        albums.append({
+            'album_key': str(row.album_key),
+            'artist': row.artist,
+            'album': row.album,
+            'genre': row.genre,
+            'year': row.year,
+            'subgenre': row.subgenre,
+            'image_url': row.image_url,
+            'apple_music_album_id': row.apple_music_album_id,
+            'apple_music_album_url': row.apple_music_url,
+        })
+        if len(albums) == num_results:
+            break
+    return {'albums': albums}
