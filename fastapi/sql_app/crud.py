@@ -1,5 +1,6 @@
 from sqlalchemy import func, text, cast, String, exists
 from sqlalchemy.orm import Session, joinedload, load_only, selectinload
+import datetime
 
 from . import models, schemas
 
@@ -215,7 +216,10 @@ def get_album_track_details(db: Session, genre: str = None):
         return db.query(models.AlbumFeatures).all()
 
 def get_track_data(db: Session, track_id: str):
-    return db.query(models.TrackFeatures).filter(models.TrackFeatures.track_id == track_id).all()
+    return db.query(models.FctTracks).filter(models.FctTracks.apple_music_track_id == track_id).all()
+
+def get_track_data_multiple_tracks(db: Session, track_ids: list):
+    return db.query(models.FctTracks).filter(models.FctTracks.apple_music_track_id.in_(track_ids)).all()
 
 def get_relevant_artists(db: Session, search_string: str):
     tsquery = func.plainto_tsquery(f'{search_string}:*')
@@ -244,6 +248,33 @@ def get_similar_albums(db: Session, album_key: str, publication_weight: float, n
         SELECT mood_vector, publication_vector, genre
         FROM dbt.vector_albums
         WHERE album_key = '{album_key}'
+    ) target
+    WHERE s.genre = target.genre
+    ORDER BY (s.publication_vector <=> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1-publication_weight}
+    LIMIT {num_results};
+    """)
+    return db.execute(query).fetchall()
+
+def get_similar_albums_multiple_albums(db: Session, album_keys: list, publication_weight: float, num_results: int):
+    query = text(f"""
+    SELECT 
+        s.album_key,
+        s.artist,
+        s.album,
+        s.genre,
+        s.year,
+        s.subgenre,
+        s.image_url,
+        s.spotify_album_id,
+        s.apple_music_album_id,
+        s.apple_music_url,
+        s.mood_vector <-> target.mood_vector AS mood_distance,
+        s.publication_vector <=> target.publication_vector AS publication_distance
+    FROM dbt.vector_albums s
+    CROSS JOIN (
+        SELECT mood_vector, publication_vector, genre
+        FROM dbt.vector_albums
+        WHERE album_key IN ({','.join(album_keys)})
     ) target
     WHERE s.genre = target.genre
     ORDER BY (s.publication_vector <=> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1-publication_weight}
@@ -355,3 +386,68 @@ def get_albums_from_search_string(db: Session, search_term: str, num_results: in
     LIMIT {num_results};
     """)
     return db.execute(query).fetchall()
+
+def upsert_user_token(db: Session, api_key: str, music_user_token: str):
+    now = datetime.datetime.utcnow()
+    existing = db.query(models.UserToken).filter(models.UserToken.api_key == api_key).first()
+    if existing:
+        existing.music_user_token = music_user_token
+        existing.last_seen_at = now
+        existing.updated_at = now
+    else:
+        db.add(models.UserToken(
+            api_key=api_key,
+            music_user_token=music_user_token,
+            last_seen_at=now,
+            updated_at=now,
+        ))
+    db.commit()
+
+def get_fresh_user_listening_preferences(db: Session, api_key: str, max_age_hours: int = 24):
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=max_age_hours)
+    rows = db.query(models.UserListeningPreference).filter(
+        models.UserListeningPreference.api_key == api_key,
+        models.UserListeningPreference.computed_at > cutoff,
+    ).all()
+    return rows
+
+def upsert_user_listening_preferences(db: Session, api_key: str, results: list):
+    now = datetime.datetime.utcnow()
+    for item in results:
+        existing = db.query(models.UserListeningPreference).filter(
+            models.UserListeningPreference.api_key == api_key,
+            models.UserListeningPreference.topic == item['topic'],
+        ).first()
+        if existing:
+            existing.type = item['type']
+            existing.count = item['count']
+            existing.rate = item['rate']
+            existing.album_keys = item['album_keys']
+            existing.computed_at = now
+        else:
+            db.add(models.UserListeningPreference(
+                api_key=api_key,
+                topic=item['topic'],
+                type=item['type'],
+                count=item['count'],
+                rate=item['rate'],
+                album_keys=item['album_keys'],
+                computed_at=now,
+            ))
+    db.commit()
+
+def get_active_stale_users(db: Session, max_age_hours: int = 24, active_days: int = 7):
+    active_cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=active_days)
+    stale_cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=max_age_hours)
+    active_users = db.query(models.UserToken).filter(
+        models.UserToken.last_seen_at > active_cutoff
+    ).all()
+    stale_users = []
+    for user in active_users:
+        latest_pref = db.query(models.UserListeningPreference).filter(
+            models.UserListeningPreference.api_key == user.api_key,
+            models.UserListeningPreference.computed_at > stale_cutoff,
+        ).first()
+        if not latest_pref:
+            stale_users.append(user)
+    return stale_users

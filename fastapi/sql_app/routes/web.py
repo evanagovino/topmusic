@@ -3,7 +3,7 @@ from .. import crud, models, schemas
 from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter, Request, Header, Response, Cookie
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication, _get_apple_music_auth_header, verify_api_key
+from ._utils import normalize_weights, reweight_list, unskew_features_function, unpack_tracks, _get_similar_genres, _get_similar_artists_by_track_details, _get_similar_tracks_by_euclidean_distance, _get_similar_tracks, pull_relevant_albums, _get_similar_artists_by_genre, _get_similar_albums_by_track_details, _get_similar_artists_by_publication, _get_similar_albums_by_publication, _get_apple_music_auth_header, verify_api_key, _get_apple_music_recently_played_tracks
 from .session_utils import get_api_key, return_all_sessions_api_keys, get_user_token_developer_token, create_session, create_api_key, serializer, SESSION_COOKIE_NAME, SESSION_MAX_AGE
 from sqlalchemy.orm import Session
 import numpy as np
@@ -14,6 +14,7 @@ import json
 import datetime
 import os
 import requests
+from collections import Counter
 
 
 router = APIRouter(prefix="/web", tags=["Web"])
@@ -503,8 +504,27 @@ def get_track_data(track_id: str,
         raise HTTPException(status_code=404, detail="No tracks that match criteria")
     x = {}
     for position, value in enumerate(db_tracks):
-        for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
+        # for feature in ['artist_id', 'track_id','track_name', 'track_popularity', 'genre', 'subgenre', 'year', 'artist', 'image_url']:
+        for feature in ['apple_music_track_id', 'album_key', 'artist', 'album', 'genre', 'subgenre', 'year', 'image_url', 'apple_music_album_id', 'apple_music_album_url', 'spotify_album_uri', 'duration_ms', 'apple_music_track_name', 'track_popularity', 'album_points', 'eligible_points', 'tempo_raw', 'danceability_clean', 'energy_clean', 'instrumentalness_clean', 'valence_clean', 'speechiness_clean']:
             x[feature] = getattr(value, feature)
+    return x
+
+@router.get('/get_track_data_multiple_tracks/', response_model=schemas.TracksList)
+def get_track_data_multiple_tracks(track_ids: List[str] = Query([None]),
+                                   db: Session = Depends(get_db)
+                                   ):
+    """
+    Return data for a multiple tracks.
+    """
+    db_tracks = crud.get_track_data_multiple_tracks(db, track_ids=track_ids)
+    if len(db_tracks) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    x = {'tracks': []}
+    for position, value in enumerate(db_tracks):
+        d = {}
+        for feature in ['apple_music_track_id', 'album_key', 'artist', 'album', 'genre', 'subgenre', 'year', 'image_url', 'apple_music_album_id', 'apple_music_album_url', 'spotify_album_uri', 'duration_ms', 'apple_music_track_name', 'track_popularity', 'album_points', 'eligible_points', 'tempo_raw', 'danceability_clean', 'energy_clean', 'instrumentalness_clean', 'valence_clean', 'speechiness_clean']:
+            d[feature] = getattr(value, feature)
+        x['tracks'].append(d)
     return x
 
 @router.get('/get_album_accolades_multiple_albums/', response_model=schemas.Albums)
@@ -753,3 +773,114 @@ async def create_apple_music_playlist(session_info: dict = Depends(get_api_key),
         return response.json()
     else:
         return None
+
+@router.get('/get_user_track_data/')
+def get_user_track_data(
+    music_user_token: str = Header(..., alias="Music-User-Token"),
+    api_key: str = Depends(verify_api_key),
+    track_limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Return data for a user's tracks
+    """
+    crud.upsert_user_token(db, api_key=api_key, music_user_token=music_user_token)
+
+    cached = crud.get_fresh_user_listening_preferences(db, api_key=api_key)
+    if cached:
+        return [
+            {
+                'topic': row.topic,
+                'type': row.type,
+                'count': row.count,
+                'rate': row.rate,
+                'album_keys': row.album_keys,
+            }
+            for row in cached
+        ]
+
+    encoded_heading = _get_apple_music_auth_header(api_key)
+    developer_token = encoded_heading['developer_token']
+    headers = {
+        'Authorization': f'Bearer {developer_token}',
+        'Music-User-Token': music_user_token
+    }
+    tracks = _get_apple_music_recently_played_tracks(headers, track_limit)
+    track_ids = list(set([i['id'] for i in tracks]))
+    db_tracks = crud.get_track_data_multiple_tracks(db, track_ids=track_ids)
+    if len(db_tracks) == 0:
+        raise HTTPException(status_code=404, detail="No tracks that match criteria")
+    x = {'tracks': []}
+    for position, value in enumerate(db_tracks):
+        d = {}
+        for feature in ['apple_music_track_id', 'album_key', 'artist', 'album', 'genre', 'subgenre', 'year', 'image_url', 'apple_music_album_id', 'apple_music_album_url', 'spotify_album_uri', 'duration_ms', 'apple_music_track_name', 'track_popularity', 'album_points', 'eligible_points', 'tempo_raw', 'danceability_clean', 'energy_clean', 'instrumentalness_clean', 'valence_clean', 'speechiness_clean']:
+            d[feature] = getattr(value, feature)
+        x['tracks'].append(d)
+    all_results = []
+    total_track_length = len(x['tracks'])
+
+    top_artist = Counter(i['artist'] for i in x['tracks']).most_common(1)
+    for i in top_artist:
+        artist_album_keys = list(set(
+            str(t['album_key']) for t in x['tracks'] if t['artist'] == i[0]
+        ))
+        all_results.append({
+            'topic': i[0],
+            'type': 'artist',
+            'count': i[1],
+            'rate': i[1] / total_track_length,
+            'album_keys': artist_album_keys
+        })
+
+    top_genres = Counter(i['genre'] for i in x['tracks']).most_common(2)
+    for i in top_genres:
+        genre_album_keys = list(set(
+            str(t['album_key']) for t in x['tracks'] if t['genre'] == i[0]
+        ))
+        all_results.append({
+            'topic': i[0],
+            'type': 'genre',
+            'count': i[1],
+            'rate': i[1] / total_track_length,
+            'album_keys': genre_album_keys
+        })
+
+    crud.upsert_user_listening_preferences(db, api_key=api_key, results=all_results)
+    return all_results
+
+@router.get('/get_similar_albums_for_user_genre/')
+def get_similar_albums_for_user_genre(
+    album_keys: List[str] = Query([]),
+    publication_weight: float = 0.5,
+    num_results: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Return similar albums to the given album_keys, filtered to the same genre.
+    """
+    if not album_keys:
+        raise HTTPException(status_code=400, detail="No album_keys provided")
+    album_keys = [f"'{i}'" for i in album_keys]
+    db_albums = crud.get_similar_albums_multiple_albums(db, album_keys=album_keys, publication_weight=publication_weight, num_results=num_results * len(album_keys))
+    if len(db_albums) == 0:
+        raise HTTPException(status_code=404, detail="No similar albums found")
+    albums = []
+    seen = set()
+    for row in db_albums:
+        if row.album_key in seen:
+            continue
+        seen.add(row.album_key)
+        albums.append({
+            'album_key': str(row.album_key),
+            'artist': row.artist,
+            'album': row.album,
+            'genre': row.genre,
+            'year': row.year,
+            'subgenre': row.subgenre,
+            'image_url': row.image_url,
+            'apple_music_album_id': row.apple_music_album_id,
+            'apple_music_album_url': row.apple_music_url,
+        })
+        if len(albums) == num_results:
+            break
+    return {'albums': albums}
