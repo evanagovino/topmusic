@@ -96,14 +96,15 @@ def get_relevant_albums(min_year: int,
     return x
 
 @router.get("/get_similar_albums/", response_model=schemas.AlbumsList)
-def get_similar_albums(album_key: str, 
-                      publication_weight: float = 0.7,
+def get_similar_albums(album_key: str,
+                      publication_weight: float = 0.5,
+                      label_weight: float = 0.1,
                       num_results: int = 10,
                       skip_first_album: bool = True,
                       db: Session = Depends(get_db)):
     x = {}
     x['albums'] = []
-    results = crud.get_similar_albums(db=db, album_key=album_key, publication_weight=publication_weight, num_results=num_results)
+    results = crud.get_similar_albums(db=db, album_key=album_key, publication_weight=publication_weight, label_weight=label_weight, num_results=num_results)
     if skip_first_album:
         results = results[1:]
     for value in results:
@@ -119,7 +120,8 @@ def get_similar_albums(album_key: str,
             'apple_music_album_id': value.apple_music_album_id,
             'apple_music_url': value.apple_music_url,
             'mood_distance': value.mood_distance,
-            'publication_distance': value.publication_distance
+            'publication_distance': value.publication_distance,
+            'record_label_distance': value.record_label_distance
         })
     return x
 
