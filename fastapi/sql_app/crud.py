@@ -228,9 +228,10 @@ def get_relevant_artists(db: Session, search_string: str):
     print('TSQUERY', tsquery)
     return db.query(models.ArtistPoints).filter(models.ArtistPoints.artist.op("@@")(func.to_tsquery(f'{search_string}:*'))).order_by(models.ArtistPoints.points.desc()).limit(5).all()
 
-def get_similar_albums(db: Session, album_key: str, publication_weight: float, num_results: int):
+def get_similar_albums(db: Session, album_key: str, publication_weight: float, label_weight: float, num_results: int):
+    mood_weight = 1 - publication_weight - label_weight
     query = text(f"""
-    SELECT 
+    SELECT
         s.album_key,
         s.artist,
         s.album,
@@ -242,22 +243,24 @@ def get_similar_albums(db: Session, album_key: str, publication_weight: float, n
         s.apple_music_album_id,
         s.apple_music_url,
         s.mood_vector <-> target.mood_vector AS mood_distance,
-        s.publication_vector <=> target.publication_vector AS publication_distance
+        s.publication_vector <=> target.publication_vector AS publication_distance,
+        CASE WHEN s.apple_music_record_label = target.apple_music_record_label THEN 0 ELSE 1 END AS record_label_distance
     FROM dbt.vector_albums s
     CROSS JOIN (
-        SELECT mood_vector, publication_vector, genre
+        SELECT mood_vector, publication_vector, apple_music_record_label, genre
         FROM dbt.vector_albums
         WHERE album_key = '{album_key}'
     ) target
     WHERE s.genre = target.genre
-    ORDER BY (s.publication_vector <=> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1-publication_weight}
+    ORDER BY ((s.publication_vector <=> target.publication_vector) * {publication_weight}) + ((s.mood_vector <-> target.mood_vector) * {mood_weight}) + ((CASE WHEN s.apple_music_record_label = target.apple_music_record_label THEN 0 ELSE 1 END) * {label_weight})
     LIMIT {num_results};
     """)
     return db.execute(query).fetchall()
 
-def get_similar_albums_multiple_albums(db: Session, album_keys: list, publication_weight: float, num_results: int):
+def get_similar_albums_multiple_albums(db: Session, album_keys: list, publication_weight: float, label_weight: float, num_results: int):
+    mood_weight = 1 - publication_weight - label_weight
     query = text(f"""
-    SELECT 
+    SELECT
         s.album_key,
         s.artist,
         s.album,
@@ -269,15 +272,16 @@ def get_similar_albums_multiple_albums(db: Session, album_keys: list, publicatio
         s.apple_music_album_id,
         s.apple_music_url,
         s.mood_vector <-> target.mood_vector AS mood_distance,
-        s.publication_vector <=> target.publication_vector AS publication_distance
+        s.publication_vector <=> target.publication_vector AS publication_distance,
+        CASE WHEN s.apple_music_record_label IS NULL OR target.apple_music_record_label IS NULL THEN 0 WHEN s.apple_music_record_label = target.apple_music_record_label THEN 0 ELSE 1 END AS record_label_distance
     FROM dbt.vector_albums s
     CROSS JOIN (
-        SELECT mood_vector, publication_vector, genre
+        SELECT mood_vector, publication_vector, apple_music_record_label, genre
         FROM dbt.vector_albums
         WHERE album_key IN ({','.join(album_keys)})
     ) target
     WHERE s.genre = target.genre
-    ORDER BY (s.publication_vector <=> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {1-publication_weight}
+    ORDER BY (s.publication_vector <=> target.publication_vector) * {publication_weight} + (s.mood_vector <-> target.mood_vector) * {mood_weight} + CASE WHEN s.apple_music_record_label IS NULL OR target.apple_music_record_label IS NULL THEN 0 WHEN s.apple_music_record_label = target.apple_music_record_label THEN 0 ELSE 1 END * {label_weight}
     LIMIT {num_results};
     """)
     return db.execute(query).fetchall()

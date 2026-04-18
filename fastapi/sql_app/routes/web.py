@@ -852,6 +852,7 @@ def get_user_track_data(
 def get_similar_albums_for_user_genre(
     album_keys: List[str] = Query([]),
     publication_weight: float = 0.5,
+    label_weight: float = 0.1,
     num_results: int = 20,
     db: Session = Depends(get_db)
 ):
@@ -861,7 +862,7 @@ def get_similar_albums_for_user_genre(
     if not album_keys:
         raise HTTPException(status_code=400, detail="No album_keys provided")
     album_keys = [f"'{i}'" for i in album_keys]
-    db_albums = crud.get_similar_albums_multiple_albums(db, album_keys=album_keys, publication_weight=publication_weight, num_results=num_results * len(album_keys))
+    db_albums = crud.get_similar_albums_multiple_albums(db, album_keys=album_keys, publication_weight=publication_weight, label_weight=label_weight, num_results=num_results * len(album_keys))
     if len(db_albums) == 0:
         raise HTTPException(status_code=404, detail="No similar albums found")
     albums = []
@@ -880,6 +881,7 @@ def get_similar_albums_for_user_genre(
             'image_url': row.image_url,
             'apple_music_album_id': row.apple_music_album_id,
             'apple_music_album_url': row.apple_music_url,
+            'record_label_distance': row.record_label_distance,
         })
         if len(albums) == num_results:
             break
