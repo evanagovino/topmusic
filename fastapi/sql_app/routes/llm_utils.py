@@ -369,7 +369,7 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
     Tempo: {album_features['tempo']}
     Editorial Description: {album_features['apple_music_editorial_notes_standard']}
 
-    Using this metadata, bucket this album into at least one, and no more than three, of the fourteen listed descriptors.
+    Using this metadata, bucket this album into at least one, and no more than three, of the fourteen listed descriptors. Do not pass any descriptors not in the valid descriptors list.
 
     Return ONLY valid JSON:
     {{
