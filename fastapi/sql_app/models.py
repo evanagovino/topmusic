@@ -31,6 +31,7 @@ class FctAlbums(Base):
     apple_music_editorial_notes_standard = Column(String)
     moods = relationship('AlbumDescriptors', back_populates='album')
     music_lists = relationship('RelevantAlbums', back_populates='album')
+    tracks = relationship('FctTracks', back_populates='album_info')
 
 class AlbumDescriptors(Base):
     __tablename__ = 'fct_album_descriptors'
@@ -46,7 +47,7 @@ class FctTracks(Base):
     __table_args__ = {"schema": "dbt"}
 
     apple_music_track_id = Column(String, primary_key=True)
-    album_key = Column(Integer)
+    album_key = Column(Integer, ForeignKey('dbt.fct_albums.album_key'))
     artist = Column(String)
     album = Column(String)
     genre = Column(String)
@@ -67,6 +68,11 @@ class FctTracks(Base):
     instrumentalness_clean = Column(Float)
     valence_clean = Column(Float)
     speechiness_clean = Column(Float)
+    energy_level = Column(String)
+    valence_level = Column(String)
+    danceability_level = Column(String)
+    instrumentalness_level = Column(String)
+    album_info = relationship('FctAlbums', back_populates='tracks')
     
 
 

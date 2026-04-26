@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums, unpack_albums_new, return_tracks_new, normalize_weights
-from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features, generate_audio_descriptors_using_features
+from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features, generate_audio_descriptors_using_features, generate_playlist_filter_spec
 import numpy as np
 import pandas as pd
 import json
@@ -508,37 +508,74 @@ def get_descriptor_buckets_for_album(album_id: str, db: Session = Depends(get_db
     return {'album_id': album_id, 'audio_descriptors': audio_descriptors, 'explanation': explanation}
 
 @router.get("/create_playlist_from_user_prompt/", response_model=schemas.TracksLLMResponse)
-def create_playlist_from_user_prompt(user_request: str, genres: List[str] = Query(['']), weigh_by_popularity: bool = True, song_limit: int = 50, debug: bool = False, db: Session = Depends(get_db)):
-    tracks_db = get_all_tracks(db, genres=genres)
-    print('NUM OF RETURNED SONGS',len(tracks_db['tracks']))
-    df = pd.DataFrame(tracks_db['tracks'])
-    available_genres = sorted(df['genre'].dropna().unique().tolist())
-    available_subgenres = sorted(df['subgenre'].dropna().unique().tolist())
-    available_artists = sorted(df['artist'].dropna().unique().tolist())
-    df['genre'] = df['genre'].str.lower()
-    df['subgenre'] = df['subgenre'].str.lower()
-    df['tempo_mapped'] = df.apply(normalize_tempo_column, axis=1)
-    audio_features = ['tempo_mapped', 'energy', 'valence', 'danceability', 'instrumentalness', 'popularity']
-    df['derived_mood'] = df.apply(derive_mood_from_features, axis=1)
-    test_result, explanation, playlist_name, where_conditions, prompt = generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=weigh_by_popularity, song_limit=song_limit)
-    if test_result is None:
-        raise HTTPException(status_code=404, detail="No tracks found, please try again with different genres or a different request")
+def create_playlist_from_user_prompt(user_request: str, weigh_by_popularity: bool = True, song_limit: int = 50, debug: bool = False, db: Session = Depends(get_db)):
+    filter_spec = generate_playlist_filter_spec(user_request)
+    if not filter_spec:
+        raise HTTPException(status_code=500, detail="Failed to generate filter spec from prompt")
+
+    explanation = filter_spec.get('explanation', '')
+    playlist_name = filter_spec.get('playlist_name', '')
+    where_conditions = {k: v for k, v in filter_spec.items() if k not in ('explanation', 'playlist_name')}
+
+    db_tracks = crud.get_tracks_by_filter_spec(db, filter_spec, song_limit=song_limit * 4)
+    print('NUM OF RETURNED SONGS', len(db_tracks))
+    if not db_tracks:
+        raise HTTPException(status_code=404, detail="No tracks found, please try again with a different request")
+
+    df = pd.DataFrame([{
+        'track_id': t.apple_music_track_id,
+        'track_name': t.apple_music_track_name,
+        'artist': t.artist,
+        'album': t.album,
+        'genre': t.genre,
+        'subgenre': t.subgenre,
+        'apple_music_album_id': t.apple_music_album_id,
+        'apple_music_album_url': t.apple_music_album_url,
+        'album_key': t.album_key,
+        'image_url': t.image_url,
+        'year': t.year,
+        'popularity': t.track_popularity,
+        'energy_level': t.energy_level,
+        'valence_level': t.valence_level,
+        'danceability_level': t.danceability_level,
+        'instrumentalness_level': t.instrumentalness_level,
+        'album_moods': [m.mood for m in t.album_info.moods] if t.album_info else [],
+    } for t in db_tracks])
+
+    if weigh_by_popularity and 'popularity' in df.columns and df['popularity'].notna().any():
+        weights = df['popularity'].fillna(0).values.astype(float)
+        min_weight = weights.min()
+        if min_weight <= 0:
+            weights = weights - min_weight + 0.01
+        sampled_indices = np.random.choice(
+            df.index,
+            size=min(song_limit, len(df)),
+            replace=False,
+            p=weights / weights.sum()
+        )
+        result = df.loc[sampled_indices]
+    else:
+        result = df.head(song_limit)
+
     x = {'tracks': [], 'explanation': explanation, 'where_conditions': where_conditions, 'playlist_name': playlist_name}
-    if debug:
-        x['prompt'] = prompt
-    for result in test_result.iterrows():
+    for _, row in result.iterrows():
         x['tracks'].append({
-            'track_id': result[1].track_id,
-            'track_name': result[1].track_name,
-            'artist': result[1].artist,
-            'album_name': result[1].album,
-            'genre': result[1].genre,
-            'subgenre': result[1].subgenre,
-            'apple_music_album_id': result[1].apple_music_album_id,
-            'album_url': result[1].apple_music_album_url,
-            'album_key': result[1].album_key,
-            'image_url': result[1].image_url,
-            'year': result[1].year,
-            'track_popularity': result[1].popularity,
+            'track_id': row['track_id'],
+            'track_name': row['track_name'],
+            'artist': row['artist'],
+            'album_name': row['album'],
+            'genre': row['genre'],
+            'subgenre': row['subgenre'],
+            'apple_music_album_id': row['apple_music_album_id'],
+            'album_url': row['apple_music_album_url'],
+            'album_key': row['album_key'],
+            'image_url': row['image_url'],
+            'year': row['year'],
+            'track_popularity': row['popularity'],
+            'energy_level': row['energy_level'],
+            'valence_level': row['valence_level'],
+            'danceability_level': row['danceability_level'],
+            'instrumentalness_level': row['instrumentalness_level'],
+            'album_moods': row['album_moods'],
         })
     return x
