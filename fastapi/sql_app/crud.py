@@ -379,6 +379,43 @@ def get_all_tracks_new(db: Session, genres: list = []):
         base_query = base_query.filter(models.FctTracks.genre.in_(genres))
     return base_query.all()
 
+def get_tracks_by_filter_spec(db: Session, filter_spec: dict, song_limit: int = 200):
+    query = db.query(models.FctTracks).filter(models.FctTracks.apple_music_track_id.isnot(None))
+    query = query.options(selectinload(models.FctTracks.album_info).selectinload(models.FctAlbums.moods))
+
+    moods = filter_spec.get('moods', [])
+    if moods:
+        query = query.join(models.FctAlbums, models.FctTracks.album_key == models.FctAlbums.album_key)
+        query = query.join(models.AlbumDescriptors, models.FctAlbums.album_key == models.AlbumDescriptors.album_key)
+        query = query.filter(models.AlbumDescriptors.mood.in_(moods))
+        query = query.distinct()
+
+    genres = filter_spec.get('genres', [])
+    if genres:
+        query = query.filter(models.FctTracks.genre.in_(genres))
+
+    subgenres = filter_spec.get('subgenres', [])
+    if subgenres:
+        query = query.filter(models.FctTracks.subgenre.in_(subgenres))
+
+    energy_levels = filter_spec.get('energy_levels', [])
+    if energy_levels:
+        query = query.filter(models.FctTracks.energy_level.in_(energy_levels))
+
+    valence_levels = filter_spec.get('valence_levels', [])
+    if valence_levels:
+        query = query.filter(models.FctTracks.valence_level.in_(valence_levels))
+
+    danceability_levels = filter_spec.get('danceability_levels', [])
+    if danceability_levels:
+        query = query.filter(models.FctTracks.danceability_level.in_(danceability_levels))
+
+    instrumentalness_levels = filter_spec.get('instrumentalness_levels', [])
+    if instrumentalness_levels:
+        query = query.filter(models.FctTracks.instrumentalness_level.in_(instrumentalness_levels))
+
+    return query.limit(song_limit).all()
+
 def get_albums_from_search_string(db: Session, search_term: str, num_results: int):
     search_words = search_term.split(' ')
     ts_query = ' & '.join([f"{word}:*" for word in search_words])

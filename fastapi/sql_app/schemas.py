@@ -54,8 +54,7 @@ class TracksLLMResponse(BaseModel):
     tracks: list
     explanation: str
     playlist_name: str
-    where_conditions: list
-    prompt: Optional[str] = None
+    where_conditions: dict
 
     class Config:
         orm_mode = True

@@ -391,6 +391,68 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
     else:
         return None, None
 
+
+def generate_playlist_filter_spec(user_request: str) -> dict:
+    AVAILABLE_MOODS = ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird', 'Chill']
+
+    AVAILABLE_GENRES = ['African', 'Alternative', 'Classical', 'Contemporary', 'Country', 'Electronic', 'Experimental', 'Indie Rock', 'Jazz', 'Latin', 'Metal', 'Pop', 'Rap', 'R&B', 'Reggae', 'Rock']
+
+    AVAILABLE_SUBGENRES = ['African', 'Afrobeat', 'Afrobeats', 'Alternative', 'Amapiano', 'Ambient', 'Ambient Folk', 'Americana', 'Bachata', 'Balearic', 'Baroque', 'Bass', 'Bluegrass', 'Blues', 'Brazilian', 'Brazilian Funk', 'British Rap', 'Choral', 'Classical', 'Classical Folk', 'Contemporary', 'Country', 'Cumbia', 'Dancehall', 'Dembow', 'Desert Blues', 'Doom', 'Downtempo', 'Dream Pop', 'Drone', 'Drum & Bass', 'Dubstep', 'Egyptian', 'Electronic', 'Electropop', 'Emo', 'Ethiopian', 'Experimental', 'Experimental Rap', 'Experimental Rock', 'Field Recording', 'Flamenco', 'Folk', 'Footwork', 'Funk', 'Gospel', 'Gqom', 'Grime', 'Hardcore', 'House', 'IDM', 'Indie Dance', 'Indie Pop', 'Indie Rock', 'Industrial', 'Instrumental Hip-Hop', 'Internet', 'Jazz', 'Jersey Club', 'J-Pop', 'Jungle', 'K-Pop', 'Latin', 'Mambo', 'Mariachi', 'Metal', 'Miami Bass', 'New Age', 'New Wave', 'Noise', 'Nu Metal', 'Opera', 'Pop', 'Post-Punk', 'Power Pop', 'Psychadelic Rock', 'Punk', 'Ranchera', 'Rap', 'R&B', 'Reggae', 'Regional Mexican', 'Rock', 'Salsa', 'Screamo', 'Shoegaze', 'Singer/Songwriter', 'Ska', 'Soul', 'Spiritual Jazz', 'Spoken Word', 'Techno', 'UK Rap', 'Vaporwave', 'Vocal Jazz', 'Yacht Rock']
+
+    AVAILABLE_ENERGY_LEVELS = ['high energy', 'moderate energy', 'calm/relaxing']
+
+    AVAILABLE_VALENCE_LEVELS = ['sad/depressing', 'happy/upbeat', 'neutral/mellow']
+
+    AVAILABLE_DANCEABILITY_LEVELS = ['not danceable', 'very danceable']
+
+    AVAILABLE_INSTRUMENTALNESS_LEVELS = ['instrumental']
+    prompt = f"""You are a music curator. Given a user's playlist request, return a JSON filter spec using only the values listed below.
+
+User request: "{user_request}"
+
+AVAILABLE VALUES:
+- moods (album-level): {AVAILABLE_MOODS}
+- genres: {AVAILABLE_GENRES}
+- subgenres: {AVAILABLE_SUBGENRES}
+- energy_levels: {AVAILABLE_ENERGY_LEVELS}
+- valence_levels: {AVAILABLE_VALENCE_LEVELS}
+- danceability_levels: {AVAILABLE_DANCEABILITY_LEVELS}
+- instrumentalness_levels: {AVAILABLE_INSTRUMENTALNESS_LEVELS}
+
+RULES:
+- Only use values from the lists above. Do not invent new values.
+- Omit a key entirely (do not include an empty list) if the request does not warrant filtering on that dimension.
+- You may select multiple values per dimension when appropriate.
+- Prefer broader filters over narrow ones to avoid returning zero results.
+
+Return ONLY valid JSON:
+{{
+  "moods": ["mood1", "mood2"],
+  "genres": ["genre1"],
+  "subgenres": ["subgenre1"],
+  "energy_levels": ["level1"],
+  "valence_levels": ["level1"],
+  "danceability_levels": ["level1"],
+  "instrumentalness_levels": ["level1"],
+  "explanation": "brief reasoning",
+  "playlist_name": "short name"
+}}
+
+JSON:"""
+    response = test_llm_claude(prompt)
+    if not response:
+        return {}
+    try:
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if json_match:
+            spec = json.loads(json_match.group(), strict=False)
+            print("Filter spec:", json.dumps(spec, indent=2))
+            return spec
+    except Exception as e:
+        print(f"Error parsing filter spec: {e}")
+    return {}
+
+
 def generate_playlist_with_audio_features(user_request, df, weigh_by_popularity=True, song_limit=50):
     """Generate playlist using your actual audio features"""
     
