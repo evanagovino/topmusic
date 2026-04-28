@@ -7,7 +7,7 @@ export default function AboutPage() {
       <div className="space-y-6 text-gray-300 leading-relaxed">
         <p>
           TopMusic aggregates album rankings from dozens of music publications and
-          critic lists to surface the most acclaimed albums of the 21st century. Use
+          critic lists to surface the most acclaimed albums of the 20th and 21st century. Use
           filters to explore by genre, year, publication, and mood. Connect your Apple
           Music account to play music directly in the browser and favorite songs to
           your library.
