@@ -8,7 +8,7 @@ export function normalizeWeights(weights: number[]): number[] {
   return weights.map(() => 1 / weights.length)
 }
 
-export function yearRange(start = 2000, end = new Date().getFullYear()): number[] {
+export function yearRange(start = 1959, end = new Date().getFullYear()): number[] {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 }
 
