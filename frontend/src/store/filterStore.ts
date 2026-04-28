@@ -32,7 +32,7 @@ const currentYear = new Date().getFullYear()
 export const useFilterStore = create<FilterState>((set, get) => ({
   yearMode: 'single',
   singleYear: 2026,
-  minYear: 2000,
+  minYear: 1959,
   maxYear: currentYear,
   genres: [],
   subgenres: [],
