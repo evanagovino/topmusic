@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 from ._utils import verify_api_key, _get_apple_music_auth_header, pull_relevant_albums, unpack_albums_new, return_tracks_new, normalize_weights
-from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features, generate_audio_descriptors_using_features, generate_playlist_filter_spec
+from .llm_utils import test_llm, get_all_tracks, normalize_tempo_column, query_songs_with_features, derive_mood_from_features, generate_playlist_with_audio_features, generate_audio_descriptors_using_features, generate_playlist_filter_spec, relax_playlist_filter_spec
 import numpy as np
 import pandas as pd
 import json
@@ -509,18 +509,28 @@ def get_descriptor_buckets_for_album(album_id: str, db: Session = Depends(get_db
 
 @router.get("/create_playlist_from_user_prompt/", response_model=schemas.TracksLLMResponse)
 def create_playlist_from_user_prompt(user_request: str, weigh_by_popularity: bool = True, song_limit: int = 50, debug: bool = False, db: Session = Depends(get_db)):
-    filter_spec = generate_playlist_filter_spec(user_request)
+    filter_spec = generate_playlist_filter_spec(user_request, db)
     if not filter_spec:
         raise HTTPException(status_code=500, detail="Failed to generate filter spec from prompt")
+
+    db_tracks = crud.get_tracks_by_filter_spec(db, filter_spec, song_limit=song_limit * 4)
+    print('NUM OF RETURNED SONGS', len(db_tracks))
+
+    if len(db_tracks) < song_limit:
+        relaxed_spec = relax_playlist_filter_spec(user_request, filter_spec, len(db_tracks), db)
+        if relaxed_spec:
+            relaxed_tracks = crud.get_tracks_by_filter_spec(db, relaxed_spec, song_limit=song_limit * 4)
+            print('NUM OF RETURNED SONGS AFTER RELAX', len(relaxed_tracks))
+            if len(relaxed_tracks) > len(db_tracks):
+                filter_spec = relaxed_spec
+                db_tracks = relaxed_tracks
+
+    if not db_tracks:
+        raise HTTPException(status_code=404, detail="No tracks found, please try again with a different request")
 
     explanation = filter_spec.get('explanation', '')
     playlist_name = filter_spec.get('playlist_name', '')
     where_conditions = {k: v for k, v in filter_spec.items() if k not in ('explanation', 'playlist_name')}
-
-    db_tracks = crud.get_tracks_by_filter_spec(db, filter_spec, song_limit=song_limit * 4)
-    print('NUM OF RETURNED SONGS', len(db_tracks))
-    if not db_tracks:
-        raise HTTPException(status_code=404, detail="No tracks found, please try again with a different request")
 
     df = pd.DataFrame([{
         'track_id': t.apple_music_track_id,
@@ -542,20 +552,52 @@ def create_playlist_from_user_prompt(user_request: str, weigh_by_popularity: boo
         'album_moods': [m.mood for m in t.album_info.moods] if t.album_info else [],
     } for t in db_tracks])
 
+    CAP_TIERS = [(2, 1), (3, 2), (None, None)]
+
     if weigh_by_popularity and 'popularity' in df.columns and df['popularity'].notna().any():
         weights = df['popularity'].fillna(0).values.astype(float)
         min_weight = weights.min()
         if min_weight <= 0:
             weights = weights - min_weight + 0.01
-        sampled_indices = np.random.choice(
-            df.index,
-            size=min(song_limit, len(df)),
-            replace=False,
-            p=weights / weights.sum()
-        )
-        result = df.loc[sampled_indices]
     else:
-        result = df.head(song_limit)
+        weights = np.ones(len(df), dtype=float)
+
+    target = min(song_limit, len(df))
+    artists = df['artist'].to_numpy()
+    album_keys = df['album_key'].to_numpy()
+    artist_counts: dict = {}
+    album_counts: dict = {}
+    selected_positions: list = []
+    selected_set: set = set()
+
+    for max_artist, max_album in CAP_TIERS:
+        if len(selected_positions) >= target:
+            break
+        eligible = np.array([
+            i not in selected_set
+            and (max_artist is None or artist_counts.get(artists[i], 0) < max_artist)
+            and (max_album is None or album_counts.get(album_keys[i], 0) < max_album)
+            for i in range(len(df))
+        ])
+        available = weights * eligible
+
+        while len(selected_positions) < target and available.sum() > 0:
+            p = available / available.sum()
+            pos = int(np.random.choice(len(df), p=p))
+            selected_positions.append(pos)
+            selected_set.add(pos)
+            available[pos] = 0
+
+            artist = artists[pos]
+            album = album_keys[pos]
+            artist_counts[artist] = artist_counts.get(artist, 0) + 1
+            album_counts[album] = album_counts.get(album, 0) + 1
+            if max_artist is not None and artist_counts[artist] >= max_artist:
+                available[artists == artist] = 0
+            if max_album is not None and album_counts[album] >= max_album:
+                available[album_keys == album] = 0
+
+    result = df.iloc[selected_positions]
 
     x = {'tracks': [], 'explanation': explanation, 'where_conditions': where_conditions, 'playlist_name': playlist_name}
     for _, row in result.iterrows():
