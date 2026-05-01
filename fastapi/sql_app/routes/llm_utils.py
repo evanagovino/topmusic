@@ -7,7 +7,7 @@ import requests
 import numpy as np
 import pandas as pd
 import os
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 import anthropic
 
@@ -392,38 +392,66 @@ def generate_audio_descriptors_using_features(album_features, audio_features):
         return None, None
 
 
-def generate_playlist_filter_spec(user_request: str) -> dict:
-    AVAILABLE_MOODS = ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird', 'Chill']
+AVAILABLE_MOODS = ['Visceral', 'Lush', 'Sprawling', 'Intimate', 'Frenetic', 'Ethereal', 'Gritty', 'Sultry', 'Cathartic', 'Groovy', 'Wistful', 'Upbeat', 'Weird', 'Chill']
 
-    AVAILABLE_GENRES = ['African', 'Alternative', 'Classical', 'Contemporary', 'Country', 'Electronic', 'Experimental', 'Indie Rock', 'Jazz', 'Latin', 'Metal', 'Pop', 'Rap', 'R&B', 'Reggae', 'Rock']
+AVAILABLE_ENERGY_LEVELS = ['high energy', 'moderate energy', 'calm/relaxing']
 
-    AVAILABLE_SUBGENRES = ['African', 'Afrobeat', 'Afrobeats', 'Alternative', 'Amapiano', 'Ambient', 'Ambient Folk', 'Americana', 'Bachata', 'Balearic', 'Baroque', 'Bass', 'Bluegrass', 'Blues', 'Brazilian', 'Brazilian Funk', 'British Rap', 'Choral', 'Classical', 'Classical Folk', 'Contemporary', 'Country', 'Cumbia', 'Dancehall', 'Dembow', 'Desert Blues', 'Doom', 'Downtempo', 'Dream Pop', 'Drone', 'Drum & Bass', 'Dubstep', 'Egyptian', 'Electronic', 'Electropop', 'Emo', 'Ethiopian', 'Experimental', 'Experimental Rap', 'Experimental Rock', 'Field Recording', 'Flamenco', 'Folk', 'Footwork', 'Funk', 'Gospel', 'Gqom', 'Grime', 'Hardcore', 'House', 'IDM', 'Indie Dance', 'Indie Pop', 'Indie Rock', 'Industrial', 'Instrumental Hip-Hop', 'Internet', 'Jazz', 'Jersey Club', 'J-Pop', 'Jungle', 'K-Pop', 'Latin', 'Mambo', 'Mariachi', 'Metal', 'Miami Bass', 'New Age', 'New Wave', 'Noise', 'Nu Metal', 'Opera', 'Pop', 'Post-Punk', 'Power Pop', 'Psychadelic Rock', 'Punk', 'Ranchera', 'Rap', 'R&B', 'Reggae', 'Regional Mexican', 'Rock', 'Salsa', 'Screamo', 'Shoegaze', 'Singer/Songwriter', 'Ska', 'Soul', 'Spiritual Jazz', 'Spoken Word', 'Techno', 'UK Rap', 'Vaporwave', 'Vocal Jazz', 'Yacht Rock']
+AVAILABLE_VALENCE_LEVELS = ['sad/depressing', 'happy/upbeat', 'neutral/mellow']
 
-    AVAILABLE_ENERGY_LEVELS = ['high energy', 'moderate energy', 'calm/relaxing']
+AVAILABLE_DANCEABILITY_LEVELS = ['not danceable', 'very danceable']
 
-    AVAILABLE_VALENCE_LEVELS = ['sad/depressing', 'happy/upbeat', 'neutral/mellow']
+AVAILABLE_INSTRUMENTALNESS_LEVELS = ['instrumental']
 
-    AVAILABLE_DANCEABILITY_LEVELS = ['not danceable', 'very danceable']
+YEAR_MIN = 1959
+YEAR_MAX = 2026
 
-    AVAILABLE_INSTRUMENTALNESS_LEVELS = ['instrumental']
+_GENRE_HIERARCHY_CACHE: Optional[dict] = None
+
+
+def _get_genre_hierarchy(db: Session) -> dict:
+    global _GENRE_HIERARCHY_CACHE
+    if _GENRE_HIERARCHY_CACHE is not None:
+        return _GENRE_HIERARCHY_CACHE
+    rows = crud.get_unique_genres(db)
+    hierarchy: dict = {}
+    for genre, subgenre in rows:
+        if not genre:
+            continue
+        hierarchy.setdefault(genre, [])
+        if subgenre and subgenre not in hierarchy[genre]:
+            hierarchy[genre].append(subgenre)
+    _GENRE_HIERARCHY_CACHE = hierarchy
+    return hierarchy
+
+
+def _format_genre_hierarchy(hierarchy: dict) -> str:
+    return "\n".join(f"  {genre}: {', '.join(subs) if subs else '(no subgenres)'}" for genre, subs in hierarchy.items())
+
+
+def generate_playlist_filter_spec(user_request: str, db: Session) -> dict:
+    hierarchy = _get_genre_hierarchy(db)
+    hierarchy_text = _format_genre_hierarchy(hierarchy)
     prompt = f"""You are a music curator. Given a user's playlist request, return a JSON filter spec using only the values listed below.
 
 User request: "{user_request}"
 
 AVAILABLE VALUES:
 - moods (album-level): {AVAILABLE_MOODS}
-- genres: {AVAILABLE_GENRES}
-- subgenres: {AVAILABLE_SUBGENRES}
+- genre/subgenre hierarchy (each subgenre belongs only to the genre it appears under):
+{hierarchy_text}
 - energy_levels: {AVAILABLE_ENERGY_LEVELS}
 - valence_levels: {AVAILABLE_VALENCE_LEVELS}
 - danceability_levels: {AVAILABLE_DANCEABILITY_LEVELS}
 - instrumentalness_levels: {AVAILABLE_INSTRUMENTALNESS_LEVELS}
+- year range available in the database: {YEAR_MIN}-{YEAR_MAX} (inclusive). NOTE: the catalog is heavily weighted toward 2000-present; pre-2000 music is much sparser. Stacking many narrow filters (multiple moods + audio-feature levels + subgenres) on top of pre-2000 year bounds will often return very few results.
 
 RULES:
 - Only use values from the lists above. Do not invent new values.
 - Omit a key entirely (do not include an empty list) if the request does not warrant filtering on that dimension.
 - You may select multiple values per dimension when appropriate.
-- Prefer broader filters over narrow ones to avoid returning zero results.
+- Prefer broader filters over narrow ones to avoid returning zero results. For pre-2000 / vintage requests especially, populate fewer dimensions — the catalog is too thin to support many simultaneous constraints.
+- Genre/subgenre filters are AND-combined. If you select any subgenre, you MUST also include its parent genre in "genres" — otherwise the intersection will be empty. If you want subgenres from multiple parent genres (e.g. "Shoegaze" and "House"), include both parent genres ("Rock" and "Electronic"). If you only want to filter by genre with no subgenre constraint, omit the "subgenres" key entirely.
+- For year filters, use "year_min" and "year_max" (integers). Apply them when the request explicitly names a year, decade, or era (e.g. "70s", "early 90s", "music from 1985"), or when an era is strongly implied by the request (e.g. "disco", "grunge"). Clamp values to {YEAR_MIN}-{YEAR_MAX}; omit either bound if open-ended. Omit both keys if no year preference is expressed or implied.
 
 Return ONLY valid JSON:
 {{
@@ -434,6 +462,8 @@ Return ONLY valid JSON:
   "valence_levels": ["level1"],
   "danceability_levels": ["level1"],
   "instrumentalness_levels": ["level1"],
+  "year_min": 1970,
+  "year_max": 1979,
   "explanation": "brief reasoning",
   "playlist_name": "short name"
 }}
@@ -450,6 +480,70 @@ JSON:"""
             return spec
     except Exception as e:
         print(f"Error parsing filter spec: {e}")
+    return {}
+
+
+def relax_playlist_filter_spec(user_request: str, prior_spec: dict, prior_count: int, db: Session) -> dict:
+    prior_filters = {k: v for k, v in prior_spec.items() if k not in ('explanation', 'playlist_name')}
+    hierarchy = _get_genre_hierarchy(db)
+    hierarchy_text = _format_genre_hierarchy(hierarchy)
+
+    prompt = f"""You previously generated a filter spec for a music playlist request, but it returned only {prior_count} candidate tracks — too few to build a good playlist. Return a broadened filter spec that stays true to the spirit of the original request.
+
+User request: "{user_request}"
+
+Your previous filter spec (too narrow):
+{json.dumps(prior_filters, indent=2)}
+
+AVAILABLE VALUES:
+- moods (album-level): {AVAILABLE_MOODS}
+- genre/subgenre hierarchy (each subgenre belongs only to the genre it appears under):
+{hierarchy_text}
+- energy_levels: {AVAILABLE_ENERGY_LEVELS}
+- valence_levels: {AVAILABLE_VALENCE_LEVELS}
+- danceability_levels: {AVAILABLE_DANCEABILITY_LEVELS}
+- instrumentalness_levels: {AVAILABLE_INSTRUMENTALNESS_LEVELS}
+- year range available in the database: {YEAR_MIN}-{YEAR_MAX} (inclusive). NOTE: the catalog is heavily weighted toward 2000-present; pre-2000 music is much sparser. If the prior spec has pre-2000 year bounds, widening or dropping them is usually the highest-leverage relaxation — the catalog simply doesn't have enough vintage tracks to satisfy multiple narrow filters simultaneously.
+
+RULES:
+- Only use values from the lists above. Do not invent new values.
+- Your primary job is to REMOVE or omit dimensions, not add them. The prior spec is too narrow because of what's in it; adding more keys narrows further.
+- DO NOT add a key that was not in the prior spec. If the prior spec had no year bounds, do not introduce them. If it had no instrumentalness_levels, do not introduce them. Etc.
+- Tactics in priority order, most preferred first:
+  (1) Drop a key entirely (omit it from your response).
+  (2) Widen the year range (lower year_min, raise year_max), or drop one of the bounds.
+  (3) Add adjacent values to an existing list (e.g., add "moderate energy" if only "high energy" was selected).
+- Decide what to drop based on the request's intent. Dimensions the user explicitly asked for are load-bearing — drop them last. Dimensions the LLM added on its own initiative (audio-feature levels, supplementary moods) are the natural first cuts. Example: for "70s disco", year and disco-flavored moods are load-bearing; energy/valence/instrumentalness/danceability are first to drop.
+- Genre/subgenre filters are AND-combined. If you keep any subgenre, you MUST also include its parent genre in "genres". A common cause of zero results is a subgenre paired with a genre it doesn't belong to — check the prior spec for this and fix it.
+- Note in the "explanation" field which constraints you dropped/widened and why.
+
+Return ONLY valid JSON in the same shape as before:
+{{
+  "moods": [...],
+  "genres": [...],
+  "subgenres": [...],
+  "energy_levels": [...],
+  "valence_levels": [...],
+  "danceability_levels": [...],
+  "instrumentalness_levels": [...],
+  "year_min": 1970,
+  "year_max": 1979,
+  "explanation": "what was relaxed and why",
+  "playlist_name": "short name"
+}}
+
+JSON:"""
+    response = test_llm_claude(prompt)
+    if not response:
+        return {}
+    try:
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if json_match:
+            spec = json.loads(json_match.group(), strict=False)
+            print("Relaxed filter spec:", json.dumps(spec, indent=2))
+            return spec
+    except Exception as e:
+        print(f"Error parsing relaxed filter spec: {e}")
     return {}
 
 

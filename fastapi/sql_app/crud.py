@@ -414,6 +414,14 @@ def get_tracks_by_filter_spec(db: Session, filter_spec: dict, song_limit: int = 
     if instrumentalness_levels:
         query = query.filter(models.FctTracks.instrumentalness_level.in_(instrumentalness_levels))
 
+    year_min = filter_spec.get('year_min')
+    if year_min is not None:
+        query = query.filter(models.FctTracks.year >= year_min)
+
+    year_max = filter_spec.get('year_max')
+    if year_max is not None:
+        query = query.filter(models.FctTracks.year <= year_max)
+
     return query.limit(song_limit).all()
 
 def get_albums_from_search_string(db: Session, search_term: str, num_results: int):
