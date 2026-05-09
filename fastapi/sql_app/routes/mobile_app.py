@@ -131,7 +131,6 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
                            album_limit: int = 500,
                            track_length: int = 50,
                            shuffle_tracks: bool = True,
-                           weight_tracks: bool = True,
                            apple_music_required: bool = True,
                            db: Session = Depends(get_db)):
     """
@@ -157,7 +156,7 @@ def get_tracks_from_albums(album_keys: List[str] = Query(['']),
                                 track_length=track_length, 
                                 replace_albums=True, 
                                 weight_albums=True,
-                                weight_tracks=weight_tracks,
+                                weight_tracks=True,
                                 album_limit=album_limit,
                                 max_songs_per_album=3
                                 )
