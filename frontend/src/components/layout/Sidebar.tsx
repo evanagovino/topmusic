@@ -3,13 +3,18 @@ import { type ReactNode, useState } from 'react'
 interface SidebarProps {
   children: ReactNode
   label?: string
+  sticky?: boolean
 }
 
-export default function Sidebar({ children, label = 'Filters' }: SidebarProps) {
+export default function Sidebar({ children, label = 'Filters', sticky = false }: SidebarProps) {
   const [open, setOpen] = useState(true)
 
   return (
-    <div className="border-b border-gray-800 bg-gray-900">
+    <div
+      className={`border-b border-gray-800 bg-gray-900${
+        sticky ? ' sticky top-0 z-10' : ''
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen(!open)}

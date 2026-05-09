@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import MultiSelect from '../components/ui/MultiSelect'
 import YearSelector from '../components/ui/YearSelector'
@@ -48,6 +48,22 @@ export default function TopAlbumsPage() {
   const minYear = filters.effectiveMinYear()
   const maxYear = filters.effectiveMaxYear()
 
+  const [visibleCount, setVisibleCount] = useState(50)
+
+  useEffect(() => {
+    setVisibleCount(50)
+  }, [
+    filters.yearMode,
+    filters.singleYear,
+    filters.minYear,
+    filters.maxYear,
+    filters.genres,
+    filters.subgenres,
+    filters.publications,
+    filters.lists,
+    filters.moods,
+  ])
+
   const { data: relevantLists } = useRelevantLists({
     minYear,
     maxYear,
@@ -64,10 +80,11 @@ export default function TopAlbumsPage() {
     publication: filters.publications,
     list: filters.lists,
     mood: filters.moods,
+    albumLimit: visibleCount,
   })
 
   const albumKeys = useMemo(() => (albums ? albums.map((a) => a.album_key) : []), [albums])
-  const { data: accolades } = useAlbumAccolades(albumKeys)
+  const { data: accolades } = useAlbumAccolades(albumKeys, visibleCount)
 
   // Pre-fetch tracks when authorized so play/export don't need a network call in the click handler
   const { data: preloadedTracks } = useTracksFromAlbums(
@@ -112,7 +129,7 @@ export default function TopAlbumsPage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <Sidebar label="Filters">
+      <Sidebar label="Filters" sticky>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-300">
             Year Selection
@@ -212,13 +229,26 @@ export default function TopAlbumsPage() {
         {albumsLoading ? (
           <LoadingSpinner />
         ) : albums && albums.length > 0 ? (
-          <AlbumGrid
-            albums={albums}
-            accolades={accolades}
-            showPositions
-            showSubgenres={filters.subgenres.length > 0}
-            endIndex={50}
-          />
+          <>
+            <AlbumGrid
+              albums={albums}
+              accolades={accolades}
+              showPositions
+              showSubgenres={filters.subgenres.length > 0}
+              endIndex={visibleCount}
+            />
+            {albums.length >= visibleCount && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((c) => c + 50)}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                >
+                  Show 50 more
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <p className="py-10 text-center text-gray-500">
             No albums found for the selected filters.
