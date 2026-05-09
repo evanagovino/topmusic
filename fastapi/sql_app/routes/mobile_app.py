@@ -346,7 +346,7 @@ def get_recommended_tracks(artist_id: str = None,
 
     elif genre:
         x = pull_relevant_albums(db=db, 
-                                 min_year=1959,
+                                 min_year=1955,
                                  max_year=2025, 
                                  genre=[genre], 
                                  subgenre=[''], 
