@@ -46,7 +46,7 @@ export const useRadioStore = create<RadioState>((set, get) => ({
   mode: 'genre',
   genre: null,
   subgenre: null,
-  minYear: 1959,
+  minYear: 1955,
   maxYear: currentYear,
   artistName: null,
   artistId: null,

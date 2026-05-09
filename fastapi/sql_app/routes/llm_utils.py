@@ -402,7 +402,7 @@ AVAILABLE_DANCEABILITY_LEVELS = ['not danceable', 'very danceable']
 
 AVAILABLE_INSTRUMENTALNESS_LEVELS = ['instrumental']
 
-YEAR_MIN = 1959
+YEAR_MIN = 1955
 YEAR_MAX = 2026
 
 _GENRE_HIERARCHY_CACHE: Optional[dict] = None

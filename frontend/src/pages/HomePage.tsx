@@ -65,8 +65,8 @@ function DefaultRows() {
     orderByRecency: true,
   })
 
-  const { data: topSince1959, isLoading: loadingSince1959 } = useRelevantAlbums({
-    minYear: 1959,
+  const { data: topSince1955, isLoading: loadingSince1955 } = useRelevantAlbums({
+    minYear: 1955,
     maxYear: CURRENT_YEAR,
   })
 
@@ -74,7 +74,7 @@ function DefaultRows() {
     <>
       <AlbumRow title={`Top Albums of ${CURRENT_YEAR}`} isLoading={loadingThisYear} albums={topThisYear} />
       <AlbumRow title="Recently Added Albums" isLoading={loadingRecent} albums={recentlyAdded} />
-      <AlbumRow title="Top Albums Since 1959" isLoading={loadingSince1959} albums={topSince1959} />
+      <AlbumRow title="Top Albums Since 1955" isLoading={loadingSince1955} albums={topSince1955} />
     </>
   )
 }
