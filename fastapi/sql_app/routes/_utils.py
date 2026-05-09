@@ -476,13 +476,13 @@ def return_tracks_new(db,
         if len(track_results['albums'][album]) > 0:
             if weight_tracks:
                 track_popularity = [i['popularity'] for i in track_results['albums'][album]]
+                track_popularity = reweight_list(track_popularity)
+                tracks_to_add = np.random.choice(track_results['albums'][album],
+                                                size=track_request_size,
+                                                replace=False,
+                                                p=track_popularity)
             else:
-                track_popularity = [1 for i in track_results['albums'][album]]
-            track_popularity = reweight_list(track_popularity)
-            tracks_to_add = np.random.choice(track_results['albums'][album], 
-                                            size=track_request_size, 
-                                            replace=False,
-                                            p=track_popularity)
+                tracks_to_add = track_results['albums'][album][:track_request_size]
             for track in tracks_to_add:
                 final_tracks.append(track)
     return final_tracks

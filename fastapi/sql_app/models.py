@@ -72,6 +72,8 @@ class FctTracks(Base):
     valence_level = Column(String)
     danceability_level = Column(String)
     instrumentalness_level = Column(String)
+    apple_music_disc_number = Column(Integer)
+    apple_music_track_number = Column(Integer)
     album_info = relationship('FctAlbums', back_populates='tracks')
     
 

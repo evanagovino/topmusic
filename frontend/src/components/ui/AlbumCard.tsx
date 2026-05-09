@@ -47,6 +47,7 @@ export default function AlbumCard({
     albumKey ? [albumKey] : [],
     500,
     fetchEnabled && !!albumKey,
+    { weightTracks: false, shuffleTracks: false },
   )
 
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function AlbumCard({
         </button>
         {listenOpen && (
           <div className="mt-1 flex flex-wrap gap-2">
-            {isAuthorized && albumKey && (
+            {isAuthorized && albumKey && appleMusicUrl && (
               <button
                 type="button"
                 onClick={() => {

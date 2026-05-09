@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import client from '../client'
 import type { AlbumsResponse, AlbumDict } from '../types'
 
@@ -10,15 +10,16 @@ interface RelevantAlbumsParams {
   publication?: string[]
   list?: string[]
   mood?: string[]
+  albumLimit?: number
   orderByRecency?: boolean
   enabled?: boolean
 }
 
 export function useRelevantAlbums(params: RelevantAlbumsParams) {
-  const { minYear, maxYear, genre, subgenre, publication, list, mood, orderByRecency = false, enabled = true } = params
+  const { minYear, maxYear, genre, subgenre, publication, list, mood, albumLimit, orderByRecency = false, enabled = true } = params
 
   return useQuery({
-    queryKey: ['relevantAlbums', minYear, maxYear, genre, subgenre, publication, list, mood, orderByRecency],
+    queryKey: ['relevantAlbums', minYear, maxYear, genre, subgenre, publication, list, mood, albumLimit, orderByRecency],
     queryFn: async () => {
       const sp = new URLSearchParams()
       sp.set('min_year', String(minYear))
@@ -37,6 +38,10 @@ export function useRelevantAlbums(params: RelevantAlbumsParams) {
       appendList('publication', publication)
       appendList('list', list)
       appendList('mood', mood)
+
+      if (albumLimit !== undefined) {
+        sp.set('album_limit', String(albumLimit))
+      }
 
       const { data } = await client.get<AlbumsResponse>(
         `/web/get_relevant_albums/?${sp.toString()}`,
@@ -57,5 +62,6 @@ export function useRelevantAlbums(params: RelevantAlbumsParams) {
       return albums
     },
     enabled,
+    placeholderData: keepPreviousData,
   })
 }
